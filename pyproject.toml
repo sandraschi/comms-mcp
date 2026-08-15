@@ -1,0 +1,46 @@
+[project]
+name = "comms-mcp"
+version = "0.1.0"
+description = "Unified fleet comms gateway - Telegram first (v0.1), Signal/WhatsApp/Slack adapters later. comms_ops portmanteau, allowlist, 7-day retention."
+requires-python = ">=3.11"
+dependencies = [
+    "fastmcp>=3.4.4,<4",
+    "pydantic-settings>=2.4",
+    "httpx>=0.27",
+    "prefab-ui>=0.14.0",
+    "fastapi>=0.115",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.25.0",
+    "respx>=0.21.0",
+    "ruff>=0.16.0,<0.17",
+    "pyright>=1.1.411",
+]
+
+[project.scripts]
+comms-mcp = "comms_mcp.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/comms_mcp"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = ["-m", "not slow"]
+markers = [
+    "slow: subprocess or full-stack integration (excluded from default CI)",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]

@@ -1,0 +1,7 @@
+{
+  "name": "comms-mcp",
+  "description": "Unified fleet comms gateway - Telegram Bot API first (v0.1); allowlist-gated send, sanitized inbound with 7-day retention. comms_ops portmanteau.",
+  "repository": "https://github.com/sandraschi/comms-mcp",
+  "license": "MIT",
+  "tags": ["telegram", "comms", "messaging", "fleet"]
+}

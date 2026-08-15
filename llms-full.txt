@@ -1,0 +1,44 @@
+# comms-mcp — full LLM reference
+
+Unified fleet comms gateway (v0.1: Telegram Bot API). One portmanteau tool
+`comms_ops` with operations send / read_recent / list_threads / status / help.
+
+## Install
+
+git clone https://github.com/sandraschi/comms-mcp; cd comms-mcp; copy .env.example .env
+set COMMS_TELEGRAM_BOT_TOKEN (from @BotFather) + COMMS_TELEGRAM_CHAT_IDS (allowlist)
+just serve  (or uv run python -m comms_mcp; MCP_PORT=11028 -> HTTP daemon)
+
+## Tools
+
+comms_ops(operation="send", channel="telegram", chat_id="<id>", text="<body>")
+  - allowlist-gated; returns {success, outbox_id, message_id}
+comms_ops(operation="read_recent", channel="telegram")
+  - polls getUpdates, sanitizes inbound, returns recent messages
+comms_ops(operation="list_threads", channel="telegram")  -> allowlist
+comms_ops(operation="status", channel="telegram")        -> bot + allowlist + stats
+comms_ops(operation="help", channel="telegram")          -> setup steps
+
+## Config (env, prefix COMMS_)
+
+TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_IDS, TELEGRAM_API_BASE,
+DB_PATH, RETENTION_DAYS (7), MCP_PORT, MCP_HOST
+
+## Architecture
+
+FastMCP server; adapters/telegram.py (httpx Bot API); outbox/sqlite.py
+(outbox pending/sent/failed + inbound with TTL); sanitize.py (inbound
+injection neutralization, email-mcp pattern); Starlette REST /health,
+/api/v1/outbox, /api/v1/inbound in daemon mode. Dual transport per
+SOTA_REQUIREMENTS 2.3.
+
+## Roadmap
+
+v0.2: Signal (signal-cli) + Slack (Socket Mode); v0.3: WhatsApp (baileys,
+self-hosted). All behind the same comms_ops surface. Ports 11028/11029.
+
+## Troubleshooting
+
+- status shows configured:false -> token missing/empty
+- send blocked: chat not in allowlist -> add to COMMS_TELEGRAM_CHAT_IDS
+- 404 from Telegram -> token wrong or bot token pasted with "bot" prefix
