@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     telegram_chat_ids: str = ""  # comma-separated allowlist
     telegram_api_base: str = "https://api.telegram.org"
 
+    # WhatsApp (v0.2, via Node baileys sidecar)
+    whatsapp_sidecar_url: str = "http://127.0.0.1:11032"
+    whatsapp_allow_numbers: str = ""  # comma-separated E.164 allowlist
+
     # Storage / retention
     db_path: Path = Path("data/comms.db")
     retention_days: int = 7  # message-body TTL; metadata kept longer

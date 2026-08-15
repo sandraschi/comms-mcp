@@ -21,3 +21,8 @@
 - `GET /health` — status + stats
 - `GET /api/v1/outbox?status=&limit=` — delivery log
 - `GET /api/v1/inbound?chat_id=&limit=` — recent inbound
+
+## WhatsApp (v0.2, via Node baileys sidecar)
+- \comms_ops\ gains channel=\"whatsapp\": send (E.164, allowlist COMMS_WHATSAPP_ALLOW_NUMBERS), status (pairing QR via sidecar), list_threads (allowlist)
+- Pair once: start wa-sidecar (node wa-sidecar), GET :11032/qr, scan with the phone (Linked devices)
+- Inbound: sidecar POSTs to /api/v1/inbound/wa - sanitized + stored with TTL

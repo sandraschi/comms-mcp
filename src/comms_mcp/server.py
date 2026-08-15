@@ -111,3 +111,22 @@ async def api_send(request: Request):
     return JSONResponse(
         {"success": False, "error": error, "outbox_id": entry["id"]}, status_code=502
     )
+
+
+@app.post("/api/v1/inbound/wa")
+async def api_inbound_wa(request: Request):
+    """Webhook target for the wa-sidecar (inbound WhatsApp messages).
+
+    Bodies are sanitized (prompt-injection neutralized) and stored with the
+    7-day retention TTL. from = WhatsApp jid (number@s.whatsapp.net).
+    """
+    from .sanitize import sanitize_inbound
+
+    body = await request.json()
+    jid = str(body.get("from", "?"))
+    text = str(body.get("text", ""))
+    if not text.strip():
+        return {"success": False, "error": "empty text"}
+    safe = sanitize_inbound(text)
+    store.store_inbound("whatsapp", jid, jid.split("@")[0], safe)
+    return {"success": True, "stored": True}

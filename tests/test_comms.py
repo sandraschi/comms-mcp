@@ -74,6 +74,7 @@ def test_allowlist_gate(monkeypatch):
     monkeypatch.setenv("COMMS_TELEGRAM_BOT_TOKEN", "test-token")
     monkeypatch.setenv("COMMS_TELEGRAM_CHAT_IDS", "111,222")
     import comms_mcp.adapters.telegram as tel_mod
+
     tel_mod.get_settings = cfg_mod.get_settings
 
     with respx.mock:
@@ -85,4 +86,3 @@ def test_allowlist_gate(monkeypatch):
         blocked = __import__("asyncio").run(telegram.send_message("999", "hi"))
         assert blocked["success"] is False
         assert "allowlist" in blocked
-
