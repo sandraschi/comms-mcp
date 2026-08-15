@@ -10,10 +10,12 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import JSONResponse
 
 from . import __version__
+from .config import chat_allowlist, get_settings
 from .mcp import tools  # noqa: F401  # import registers tools
 from .outbox import sqlite as store
 from .registry import mcp  # noqa: F401  # re-exported for stdio entry
@@ -64,3 +66,48 @@ async def api_outbox(status: str = "", limit: int = 25):
 async def api_inbound(chat_id: str = "", limit: int = 20):
     return {"messages": store.list_inbound(chat_id=chat_id, limit=limit)}
 
+
+@app.get("/api/v1/status")
+async def api_status():
+    from .adapters import telegram
+
+    ok = await telegram.get_me()
+    return {
+        "configured": bool(ok.get("ok")),
+        "bot": (ok.get("result") or {}).get("username"),
+        "allowlist": chat_allowlist(),
+        "stats": store.status_counts(),
+        "retention_days": int(get_settings().retention_days),
+    }
+
+
+@app.post("/api/v1/send")
+async def api_send(request: Request):
+    from .adapters import telegram
+
+    body = await request.json()
+    chat_id = str(body.get("chat_id", ""))
+    text = str(body.get("text", ""))
+    if not chat_id or not text.strip():
+        return JSONResponse(
+            {"success": False, "error": "chat_id and text required"}, status_code=400
+        )
+    allow = chat_allowlist()
+    if allow and chat_id not in allow:
+        return JSONResponse(
+            {"success": False, "error": f"chat {chat_id} not in allowlist"}, status_code=403
+        )
+    entry = store.enqueue("telegram", chat_id, text)
+    result = await telegram.send_message(chat_id, text)
+    if result.get("ok"):
+        store.mark_sent(entry["id"])
+        return {
+            "success": True,
+            "outbox_id": entry["id"],
+            "message_id": (result.get("result") or {}).get("message_id"),
+        }
+    error = str(result.get("description", result))
+    store.mark_failed(entry["id"], error)
+    return JSONResponse(
+        {"success": False, "error": error, "outbox_id": entry["id"]}, status_code=502
+    )

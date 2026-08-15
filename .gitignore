@@ -9,3 +9,7 @@ data/
 *.db-*
 dist/
 build/
+node_modules/
+dist/
+web_sota/node_modules/
+web_sota/dist/
