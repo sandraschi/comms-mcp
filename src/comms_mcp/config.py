@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     whatsapp_sidecar_url: str = "http://127.0.0.1:11032"
     whatsapp_allow_numbers: str = ""  # comma-separated E.164 allowlist
 
+    # Slack (v0.3, official SDK, Socket Mode)
+    slack_app_token: str = ""  # xapp-* (Socket Mode, connections:write)
+    slack_bot_token: str = ""  # xoxb-* (Web API)
+    slack_channel_ids: str = ""  # comma-separated channel allowlist
+
     # Storage / retention
     db_path: Path = Path("data/comms.db")
     retention_days: int = 7  # message-body TTL; metadata kept longer

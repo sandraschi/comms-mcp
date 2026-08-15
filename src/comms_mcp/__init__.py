@@ -1,3 +1,3 @@
-"""comms-mcp - unified fleet comms gateway (Telegram v0.1)."""
+"""comms-mcp - unified fleet comms gateway (Telegram/WhatsApp/Slack)."""
 
-__version__ = "0.1.0"
+__version__ = "0.3.0"

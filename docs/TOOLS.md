@@ -26,3 +26,8 @@
 - \comms_ops\ gains channel=\"whatsapp\": send (E.164, allowlist COMMS_WHATSAPP_ALLOW_NUMBERS), status (pairing QR via sidecar), list_threads (allowlist)
 - Pair once: start wa-sidecar (node wa-sidecar), GET :11032/qr, scan with the phone (Linked devices)
 - Inbound: sidecar POSTs to /api/v1/inbound/wa - sanitized + stored with TTL
+
+## Slack (v0.3, official SDK, Socket Mode)
+- \comms_ops\ channel=\"slack\": send (channel allowlist COMMS_SLACK_CHANNEL_IDS), status (auth_test), list_threads, read_recent (real-time inbound)
+- No sidecar: Socket Mode client runs in the server process (needs xapp-* + xoxb-* tokens); inbound sanitized + stored
+- Setup: create app (socket mode, channels:history+chat:write), set tokens, invite bot to channels, add channels to allowlist

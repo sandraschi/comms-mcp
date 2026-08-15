@@ -265,7 +265,7 @@ wheels = [
 
 [[package]]
 name = "comms-mcp"
-version = "0.1.0"
+version = "0.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
@@ -273,6 +273,7 @@ dependencies = [
     { name = "httpx" },
     { name = "prefab-ui" },
     { name = "pydantic-settings" },
+    { name = "slack-sdk" },
 ]
 
 [package.optional-dependencies]
@@ -296,6 +297,7 @@ requires-dist = [
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.25.0" },
     { name = "respx", marker = "extra == 'dev'", specifier = ">=0.21.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.16.0,<0.17" },
+    { name = "slack-sdk", specifier = ">=3.27" },
 ]
 provides-extras = ["dev"]
 
@@ -1400,6 +1402,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/1c/03/e834bcd866f2f8a49a85eaff47340affa3bfa391ee9912a952a1faa68c7b/secretstorage-3.5.0.tar.gz", hash = "sha256:f04b8e4689cbce351744d5537bf6b1329c6fc68f91fa666f60a380edddcd11be", size = 19884, upload-time = "2025-11-23T19:02:53.191Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/46/f5af3402b579fd5e11573ce652019a67074317e18c1935cc0b4ba9b35552/secretstorage-3.5.0-py3-none-any.whl", hash = "sha256:0ce65888c0725fcb2c5bc0fdb8e5438eece02c523557ea40ce0703c266248137", size = 15554, upload-time = "2025-11-23T19:02:51.545Z" },
+]
+
+[[package]]
+name = "slack-sdk"
+version = "3.43.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/13/75/a4964eb771a0c74d79ee7a3bee6fb5d9718909dd1b675e80d62a6a0ad90a/slack_sdk-3.43.0.tar.gz", hash = "sha256:0553152e46c4259eb69f7464cdadc35ba4802ca10f9f5a849c92cf03d6c2ba07", size = 252769, upload-time = "2026-06-30T18:04:41.59Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e4/55/42141b8338d46323d5b3c6095201b044c670c20f898643b322ea9b1543a1/slack_sdk-3.43.0-py2.py3-none-any.whl", hash = "sha256:4b6557c65577fc172f685af218b811f9f3b4909e24cddd839ada09565f10c585", size = 315866, upload-time = "2026-06-30T18:04:39.636Z" },
 ]
 
 [[package]]

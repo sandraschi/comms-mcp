@@ -7,6 +7,7 @@ stdio instances probe the daemon and proxy when reachable.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -30,7 +31,26 @@ async def lifespan(app: FastAPI):
     purged = store.purge_expired()
     if purged:
         log.info("purged %d expired inbound messages", purged)
+
+    # Slack Socket Mode listener (v0.3) - background task when configured.
+    slack_client = None
+    try:
+        from .adapters import slack
+
+        if slack.configured():
+            slack_client = slack.start_socket_listener()
+            asyncio.create_task(slack_client.connect())
+            log.info("slack socket listener started")
+    except Exception as exc:
+        log.warning("slack socket listener failed to start: %s", exc)
+
     yield
+
+    if slack_client is not None:
+        try:
+            slack_client.disconnect()
+        except Exception:
+            pass
 
 
 # REST surface (webapp + diagnostics)
@@ -130,3 +150,4 @@ async def api_inbound_wa(request: Request):
     safe = sanitize_inbound(text)
     store.store_inbound("whatsapp", jid, jid.split("@")[0], safe)
     return {"success": True, "stored": True}
+

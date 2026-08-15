@@ -1,7 +1,7 @@
 [project]
 name = "comms-mcp"
-version = "0.1.0"
-description = "Unified fleet comms gateway - Telegram first (v0.1), Signal/WhatsApp/Slack adapters later. comms_ops portmanteau, allowlist, 7-day retention."
+version = "0.3.0"
+description = "Unified fleet comms gateway - Telegram (v0.1), WhatsApp baileys sidecar (v0.2), Slack Socket Mode (v0.3). comms_ops portmanteau, allowlists, 7-day retention."
 requires-python = ">=3.11"
 dependencies = [
     "fastmcp>=3.4.4,<4",
@@ -9,6 +9,7 @@ dependencies = [
     "httpx>=0.27",
     "prefab-ui>=0.14.0",
     "fastapi>=0.115",
+    "slack-sdk>=3.27",
 ]
 
 [project.optional-dependencies]
@@ -44,3 +45,4 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
+

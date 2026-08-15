@@ -12,7 +12,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import Field
 
-from ...adapters import telegram, whatsapp
+from ...adapters import slack, telegram, whatsapp
 from ...config import chat_allowlist
 from ...outbox import sqlite as store
 from ...registry import mcp
@@ -40,9 +40,9 @@ async def comms_ops(
 
     v0.1: Telegram Bot API (allowlist COMMS_TELEGRAM_CHAT_IDS).
     v0.2: WhatsApp via baileys sidecar (allowlist COMMS_WHATSAPP_ALLOW_NUMBERS,
-    E.164; pair once - comms_ops(operation='status', channel='whatsapp')
-    shows pairing QR). Inbound is sanitized (prompt-injection neutralized,
-    email-mcp pattern) and retained 7 days.
+    E.164; pair once - status shows the QR). v0.3: Slack Socket Mode
+    (allowlist COMMS_SLACK_CHANNEL_IDS; official SDK, no sidecar). Inbound
+    is sanitized (prompt-injection neutralized) and retained 7 days.
 
     ## Return Format
     {"success": bool, "message": str, ...operation-specific fields}
@@ -57,6 +57,8 @@ async def comms_ops(
         if operation == "status":
             if channel == "whatsapp":
                 return await whatsapp.status()
+            if channel == "slack":
+                return await slack.status()
             ok = await telegram.get_me()
             return {
                 "success": ok.get("ok", False),
@@ -69,6 +71,8 @@ async def comms_ops(
         if operation == "list_threads":
             if channel == "whatsapp":
                 return {"success": True, "channel": "whatsapp", "threads": whatsapp.allow_numbers()}
+            if channel == "slack":
+                return {"success": True, "channel": "slack", "threads": slack.allow_channels()}
             return {"success": True, "channel": "telegram", "threads": chat_allowlist()}
         if operation == "send":
             if not chat_id:
@@ -79,6 +83,20 @@ async def comms_ops(
                 if result.get("success"):
                     store.mark_sent(entry["id"])
                     return {"success": True, "message": "sent", "outbox_id": entry["id"], **result}
+                error = str(result.get("error", "send failed"))
+                store.mark_failed(entry["id"], error)
+                return {"success": False, "error": error, "outbox_id": entry["id"]}
+            if channel == "slack":
+                entry = store.enqueue("slack", chat_id, text)
+                result = await slack.send_message(chat_id, text)
+                if result.get("success"):
+                    store.mark_sent(entry["id"])
+                    return {
+                        "success": True,
+                        "message": "sent",
+                        "outbox_id": entry["id"],
+                        "ts": result.get("ts"),
+                    }
                 error = str(result.get("error", "send failed"))
                 store.mark_failed(entry["id"], error)
                 return {"success": False, "error": error, "outbox_id": entry["id"]}
