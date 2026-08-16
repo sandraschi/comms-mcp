@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -72,7 +73,7 @@ async def health():
         "status": "ok",
         "server": "comms-mcp",
         "version": __version__,
-        "channels": ["telegram"],
+        "channels": ["telegram", "whatsapp", "slack"],
         "stats": store.status_counts(),
     }
 
@@ -150,4 +151,18 @@ async def api_inbound_wa(request: Request):
     safe = sanitize_inbound(text)
     store.store_inbound("whatsapp", jid, jid.split("@")[0], safe)
     return {"success": True, "stored": True}
+# Serve the built webapp (web_sota/dist) at the backend root when present -
+# the console is then reachable on :11028 with no separate dev server.
+# Registered LAST so /api/* routes win.
+_DIST = Path(__file__).resolve().parent.parent.parent / "web_sota" / "dist"
+if _DIST.is_dir():
+    from starlette.staticfiles import StaticFiles
 
+    class _SpaStaticFiles(StaticFiles):
+        async def get_response(self, path: str, scope):
+            response = await super().get_response(path, scope)
+            if response.status_code == 404:
+                response = await super().get_response("index.html", scope)
+            return response
+
+    app.mount("/", _SpaStaticFiles(directory=str(_DIST), html=True), name="console")
