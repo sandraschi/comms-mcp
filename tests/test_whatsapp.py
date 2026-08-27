@@ -49,12 +49,12 @@ async def test_status_unconfigured(monkeypatch):
 async def test_status_proxies_sidecar(monkeypatch):
     import comms_mcp.config as cfg_mod
 
-    monkeypatch.setenv("COMMS_WHATSAPP_SIDECAR_URL", "http://127.0.0.1:11032")
+    monkeypatch.setenv("COMMS_WHATSAPP_SIDECAR_URL", "http://127.0.0.1:10709")
     import comms_mcp.adapters.whatsapp as wa_mod
 
     wa_mod.get_settings = cfg_mod.get_settings
     with respx.mock:
-        respx.get("http://127.0.0.1:11032/health").mock(
+        respx.get("http://127.0.0.1:10709/health").mock(
             return_value=Response(200, json={"connected": False, "connection": "connecting"})
         )
         result = await whatsapp.status()
@@ -66,7 +66,7 @@ async def test_status_proxies_sidecar(monkeypatch):
 async def test_send_allowlist_blocked(monkeypatch):
     import comms_mcp.config as cfg_mod
 
-    monkeypatch.setenv("COMMS_WHATSAPP_SIDECAR_URL", "http://127.0.0.1:11032")
+    monkeypatch.setenv("COMMS_WHATSAPP_SIDECAR_URL", "http://127.0.0.1:10709")
     import comms_mcp.adapters.whatsapp as wa_mod
 
     wa_mod.get_settings = cfg_mod.get_settings
@@ -79,12 +79,12 @@ async def test_send_allowlist_blocked(monkeypatch):
 async def test_send_proxies_sidecar(monkeypatch):
     import comms_mcp.config as cfg_mod
 
-    monkeypatch.setenv("COMMS_WHATSAPP_SIDECAR_URL", "http://127.0.0.1:11032")
+    monkeypatch.setenv("COMMS_WHATSAPP_SIDECAR_URL", "http://127.0.0.1:10709")
     import comms_mcp.adapters.whatsapp as wa_mod
 
     wa_mod.get_settings = cfg_mod.get_settings
     with respx.mock:
-        route = respx.post("http://127.0.0.1:11032/send").mock(
+        route = respx.post("http://127.0.0.1:10709/send").mock(
             return_value=Response(200, json={"ok": True, "to": "+436991234567@s.whatsapp.net"})
         )
         result = await whatsapp.send_message("+436991234567", "hello")
@@ -96,12 +96,12 @@ async def test_send_proxies_sidecar(monkeypatch):
 async def test_send_sidecar_not_connected(monkeypatch):
     import comms_mcp.config as cfg_mod
 
-    monkeypatch.setenv("COMMS_WHATSAPP_SIDECAR_URL", "http://127.0.0.1:11032")
+    monkeypatch.setenv("COMMS_WHATSAPP_SIDECAR_URL", "http://127.0.0.1:10709")
     import comms_mcp.adapters.whatsapp as wa_mod
 
     wa_mod.get_settings = cfg_mod.get_settings
     with respx.mock:
-        respx.post("http://127.0.0.1:11032/send").mock(
+        respx.post("http://127.0.0.1:10709/send").mock(
             return_value=Response(503, json={"ok": False, "error": "not connected (connecting)"})
         )
         result = await whatsapp.send_message("+436991234567", "hello")
@@ -118,3 +118,4 @@ def test_inbound_webhook_sanitizes():
     assert mid > 0
     rows = store.list_inbound(chat_id=jid, db_path=_DB)
     assert len(rows) == 1
+

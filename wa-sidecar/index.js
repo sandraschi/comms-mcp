@@ -6,7 +6,7 @@
  * webhook (COMMS_INBOUND_WEBHOOK) where they are sanitized + stored.
  *
  * Env:
- *   WA_PORT              sidecar listen port (default 11032)
+ *   WA_PORT              sidecar listen port (default 10709)
  *   COMMS_INBOUND_WEBHOOK comms-mcp inbound URL, e.g.
  *                         http://127.0.0.1:11028/api/v1/inbound/wa
  *
@@ -25,7 +25,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PORT = Number(process.env.WA_PORT || 11032);
+const PORT = Number(process.env.WA_PORT || 10709);
 const AUTH_DIR = path.join(__dirname, '..', 'data', 'wa-auth');
 const INBOUND_WEBHOOK = process.env.COMMS_INBOUND_WEBHOOK || 'http://127.0.0.1:11028/api/v1/inbound/wa';
 
@@ -124,3 +124,4 @@ start().catch((err) => {
     console.error('[wa-sidecar] fatal:', err);
     process.exit(1);
 });
+

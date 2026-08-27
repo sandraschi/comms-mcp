@@ -19,7 +19,7 @@ $services = @(
         Name    = "comms-mcp-wa"
         Cmd     = "`"$node`" index.js"
         Dir     = Join-Path $Root "wa-sidecar"
-        Env     = "WA_PORT=11032;COMMS_INBOUND_WEBHOOK=http://127.0.0.1:11028/api/v1/inbound/wa"
+        Env     = "WA_PORT=10709;COMMS_INBOUND_WEBHOOK=http://127.0.0.1:11028/api/v1/inbound/wa"
         Log     = Join-Path $Root "logs"
     }
 )
@@ -40,3 +40,4 @@ foreach ($svc in $services) {
     Write-Host "  $($svc.Name) installed + started" -ForegroundColor Green
 }
 Write-Host "Services installed. Console: http://127.0.0.1:11028" -ForegroundColor Cyan
+

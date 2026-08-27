@@ -23,13 +23,21 @@ class Settings(BaseSettings):
     telegram_api_base: str = "https://api.telegram.org"
 
     # WhatsApp (v0.2, via Node baileys sidecar)
-    whatsapp_sidecar_url: str = "http://127.0.0.1:11032"
+    whatsapp_sidecar_url: str = "http://127.0.0.1:10709"
     whatsapp_allow_numbers: str = ""  # comma-separated E.164 allowlist
 
     # Slack (v0.3, official SDK, Socket Mode)
     slack_app_token: str = ""  # xapp-* (Socket Mode, connections:write)
     slack_bot_token: str = ""  # xoxb-* (Web API)
     slack_channel_ids: str = ""  # comma-separated channel allowlist
+
+    # Teams (v0.4, Microsoft Graph app - delegated device flow)
+    # Reuse the same Azure app registration as email-mcp's
+    # EMAIL_MCP_OAUTH_CLIENT_ID; no Bot Framework/bot registration needed.
+    graph_client_id: str = ""  # Azure app (public) client id for the Graph app
+    teams_recipients: str = ""  # comma-separated allowlist: name=email or name=19:chatId
+    teams_token_file: Path = Path("data/teams_oauth.json")
+    teams_graph_base: str = "https://graph.microsoft.com/v1.0"
 
     # Storage / retention
     db_path: Path = Path("data/comms.db")
@@ -42,3 +50,23 @@ def get_settings() -> Settings:
 
 def chat_allowlist() -> list[str]:
     return [c.strip() for c in get_settings().telegram_chat_ids.split(",") if c.strip()]
+
+
+def teams_allowlist() -> dict[str, str]:
+    """Parse COMMS_TEAMS_RECIPIENTS 'name=email|19:chatId' pairs into a name->target map.
+
+    Bare entries (no '=') are keyed by themselves. The map keys are the
+    friendly names an agent sends to; the values are the email or chat id.
+    """
+    out: dict[str, str] = {}
+    for part in get_settings().teams_recipients.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if "=" in part:
+            name, target = part.split("=", 1)
+            out[name.strip()] = target.strip()
+        else:
+            out[part] = part
+    return out
+

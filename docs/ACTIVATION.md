@@ -35,14 +35,14 @@ Verify: `comms_ops(operation="help")` and `http://127.0.0.1:11028/health`.
    ```powershell
    cd comms-mcp\wa-sidecar
    npm install        # once
-   node index.js      # listens on :11032
+   node index.js      # listens on :10709
    ```
-2. Open `http://127.0.0.1:11032/qr` in a browser — **scan the QR with
+2. Open `http://127.0.0.1:10709/qr` in a browser — **scan the QR with
    WhatsApp → Linked devices** on the phone that owns the number.
    (`/qr` shows `pairing_code` too, for the phone-number pairing flow.)
 3. `.env`:
    ```
-   COMMS_WHATSAPP_SIDECAR_URL=http://127.0.0.1:11032
+   COMMS_WHATSAPP_SIDECAR_URL=http://127.0.0.1:10709
    COMMS_WHATSAPP_ALLOW_NUMBERS=+43699…
    ```
 4. Verify: `comms_ops(operation="status", channel="whatsapp")` →
@@ -77,3 +77,4 @@ Verify: `comms_ops(operation="help")` and `http://127.0.0.1:11028/health`.
 - Telegram `read_recent` pulls via long-poll; inbound arrives on demand.
 - All inbound is sanitized (prompt-injection neutralized) and retained
   `COMMS_RETENTION_DAYS` (7).
+
