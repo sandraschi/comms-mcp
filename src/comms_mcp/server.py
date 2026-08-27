@@ -151,6 +151,8 @@ async def api_inbound_wa(request: Request):
     safe = sanitize_inbound(text)
     store.store_inbound("whatsapp", jid, jid.split("@")[0], safe)
     return {"success": True, "stored": True}
+
+
 # Serve the built webapp (web_sota/dist) at the backend root when present -
 # the console is then reachable on :11028 with no separate dev server.
 # Registered LAST so /api/* routes win.
