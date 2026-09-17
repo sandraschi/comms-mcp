@@ -1,7 +1,7 @@
 param([switch]$Headless, [switch]$BackendOnly)
 $ErrorActionPreference = "Stop"
 $ScriptRoot = Split-Path -Parent $PSCommandPath
-$BackendPort = 11028
+$BackendPort = 10904
 
 function Require-Command {
     param([string]$Cmd, [string]$WingetId, [string]$Label)

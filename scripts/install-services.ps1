@@ -12,14 +12,14 @@ $services = @(
         Name    = "comms-mcp"
         Cmd     = "`"$uv`" run --project `"$Root`" python -m comms_mcp"
         Dir     = $Root
-        Env     = "MCP_PORT=11028"
+        Env     = "MCP_PORT=10904"
         Log     = Join-Path $Root "logs"
     },
     @{
         Name    = "comms-mcp-wa"
         Cmd     = "`"$node`" index.js"
         Dir     = Join-Path $Root "wa-sidecar"
-        Env     = "WA_PORT=10709;COMMS_INBOUND_WEBHOOK=http://127.0.0.1:11028/api/v1/inbound/wa"
+        Env     = "WA_PORT=10709;COMMS_INBOUND_WEBHOOK=http://127.0.0.1:10904/api/v1/inbound/wa"
         Log     = Join-Path $Root "logs"
     }
 )
@@ -39,5 +39,5 @@ foreach ($svc in $services) {
     & $nssm start $svc.Name
     Write-Host "  $($svc.Name) installed + started" -ForegroundColor Green
 }
-Write-Host "Services installed. Console: http://127.0.0.1:11028" -ForegroundColor Cyan
+Write-Host "Services installed. Console: http://127.0.0.1:10904" -ForegroundColor Cyan
 

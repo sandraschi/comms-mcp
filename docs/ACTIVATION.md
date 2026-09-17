@@ -9,10 +9,10 @@ committed).
 ```powershell
 cd comms-mcp
 copy .env.example .env
-just serve          # backend on :11028 (or MCP_PORT daemon)
+just serve          # backend on :10904 (or MCP_PORT daemon)
 ```
 
-Verify: `comms_ops(operation="help")` and `http://127.0.0.1:11028/health`.
+Verify: `comms_ops(operation="help")` and `http://127.0.0.1:10904/health`.
 
 ## 1. Telegram (v0.1)
 
@@ -26,7 +26,7 @@ Verify: `comms_ops(operation="help")` and `http://127.0.0.1:11028/health`.
    `comms_ops(operation="read_recent", channel="telegram")` — the chat id
    appears in the result. Add it to `COMMS_TELEGRAM_CHAT_IDS` and restart.
 4. Verify: `comms_ops(operation="status", channel="telegram")` → `configured: true`,
-   then Test send from the console (:11029) or
+   then Test send from the console (:10903) or
    `comms_ops(operation="send", channel="telegram", chat_id="<id>", text="hi")`.
 
 ## 2. WhatsApp (v0.2, baileys sidecar)

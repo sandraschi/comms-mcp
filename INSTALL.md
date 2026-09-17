@@ -9,14 +9,14 @@ cd comms-mcp
 ```
 
 `start.bat` → `start.ps1` → `Require-Command` (uv via winget) → `uv sync` → import
-smoke test → backend on :11028.
+smoke test → backend on :10904.
 
 ## Manual
 
 1. Install uv: `winget install Astral.uv`
 2. `uv sync` (creates .venv, downloads CPython if absent)
 3. `copy .env.example .env` and set `COMMS_TELEGRAM_BOT_TOKEN` + `COMMS_TELEGRAM_CHAT_IDS`
-4. `uv run python -m comms_mcp` (or set `MCP_PORT=11028` for the HTTP daemon)
+4. `uv run python -m comms_mcp` (or set `MCP_PORT=10904` for the HTTP daemon)
 
 ## What is NOT required globally
 

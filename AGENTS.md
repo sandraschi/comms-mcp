@@ -7,11 +7,11 @@ send, sanitized inbound, 7-day retention, SQLite outbox.
 ## Quick ref
 
 ```powershell
-uv run python -m comms_mcp        # stdio; MCP_PORT=11028 -> HTTP daemon
+uv run python -m comms_mcp        # stdio; MCP_PORT=10904 -> HTTP daemon
 just serve | lint | fix | test | types
 ```
 
-Ports: backend 11028 (reserved 11028/11029 per WEBAPP_PORTS.md).
+Ports: backend 10904 (reserved 10904/10903 per WEBAPP_PORTS.md).
 
 ## Rules
 

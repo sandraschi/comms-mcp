@@ -58,7 +58,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="comms-mcp", version=__version__, lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:11029", "http://127.0.0.1:11029"],
+    allow_origins=["http://localhost:10903", "http://127.0.0.1:10903"],
     allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
@@ -154,7 +154,7 @@ async def api_inbound_wa(request: Request):
 
 
 # Serve the built webapp (web_sota/dist) at the backend root when present -
-# the console is then reachable on :11028 with no separate dev server.
+# the console is then reachable on :10904 with no separate dev server.
 # Registered LAST so /api/* routes win.
 _DIST = Path(__file__).resolve().parent.parent.parent / "web_sota" / "dist"
 if _DIST.is_dir():

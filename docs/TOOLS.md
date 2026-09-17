@@ -17,7 +17,7 @@
 - `chat_id` — recipient chat id (send)
 - `text` — message body (send)
 
-## REST (HTTP daemon mode, MCP_PORT=11028)
+## REST (HTTP daemon mode, MCP_PORT=10904)
 
 - `GET /health` — status + stats
 - `GET /api/v1/outbox?status=&limit=` — delivery log

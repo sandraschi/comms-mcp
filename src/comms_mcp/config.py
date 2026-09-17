@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     )
 
     host: str = "127.0.0.1"
-    port: int = 11028
+    port: int = 10904
 
     # Telegram (v0.1)
     telegram_bot_token: str = ""

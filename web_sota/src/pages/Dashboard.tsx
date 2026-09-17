@@ -91,7 +91,7 @@ export default function Dashboard() {
 
             <div className="flex items-center gap-2 text-xs text-zinc-600">
                 <Activity className="h-3.5 w-3.5" />
-                backend :11028 · console :11029 · inbound sanitized · 7-day TTL
+                backend :10904 · console :10903 · inbound sanitized · 7-day TTL
             </div>
         </div>
     );

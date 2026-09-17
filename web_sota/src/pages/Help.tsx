@@ -3,7 +3,7 @@ import { HelpCircle } from 'lucide-react';
 const STEPS = [
     'Create a bot with @BotFather and copy the token.',
     'Set COMMS_TELEGRAM_BOT_TOKEN and COMMS_TELEGRAM_CHAT_IDS in .env (repo root).',
-    'Start the backend: uv run python -m comms_mcp (MCP_PORT=11028 for the daemon).',
+    'Start the backend: uv run python -m comms_mcp (MCP_PORT=10904 for the daemon).',
     'Message the bot once, then run comms_ops(operation="read_recent") — the chat id appears there; add it to the allowlist.',
     'comms_ops(operation="status") shows the bot + allowlist + stats.',
 ];
