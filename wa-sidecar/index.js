@@ -8,7 +8,7 @@
  * Env:
  *   WA_PORT              sidecar listen port (default 10709)
  *   COMMS_INBOUND_WEBHOOK comms-mcp inbound URL, e.g.
- *                         http://127.0.0.1:10904/api/v1/inbound/wa
+ *                         http://127.0.0.1:11205/api/v1/inbound/wa
  *
  * Pairing: start once, GET /qr (or /pairing) - scan with WhatsApp on the
  * phone (Linked devices). Auth persists in data/wa-auth/.
@@ -27,7 +27,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.WA_PORT || 10709);
 const AUTH_DIR = path.join(__dirname, '..', 'data', 'wa-auth');
-const INBOUND_WEBHOOK = process.env.COMMS_INBOUND_WEBHOOK || 'http://127.0.0.1:10904/api/v1/inbound/wa';
+const INBOUND_WEBHOOK = process.env.COMMS_INBOUND_WEBHOOK || 'http://127.0.0.1:11205/api/v1/inbound/wa';
 
 mkdirSync(AUTH_DIR, { recursive: true });
 

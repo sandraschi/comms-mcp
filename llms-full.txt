@@ -7,7 +7,7 @@ Unified fleet comms gateway (v0.1: Telegram Bot API). One portmanteau tool
 
 git clone https://github.com/sandraschi/comms-mcp; cd comms-mcp; copy .env.example .env
 set COMMS_TELEGRAM_BOT_TOKEN (from @BotFather) + COMMS_TELEGRAM_CHAT_IDS (allowlist)
-just serve  (or uv run python -m comms_mcp; MCP_PORT=10904 -> HTTP daemon)
+just serve  (or uv run python -m comms_mcp; MCP_PORT=11205 -> HTTP daemon)
 
 ## Tools
 
@@ -35,7 +35,7 @@ SOTA_REQUIREMENTS 2.3.
 ## Roadmap
 
 v0.2: Signal (signal-cli) + Slack (Socket Mode); v0.3: WhatsApp (baileys,
-self-hosted). All behind the same comms_ops surface. Ports 10904/10903.
+self-hosted). All behind the same comms_ops surface. Ports 11205/11204.
 
 ## Troubleshooting
 

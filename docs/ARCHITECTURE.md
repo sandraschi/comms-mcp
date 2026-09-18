@@ -9,7 +9,7 @@ comms_ops portmanteau (FastMCP)
     |--- read_recent --> getUpdates(poll) -> sanitize_inbound -> inbound(sqlite, 7d TTL)
     |--- status -------> getMe + allowlist + stats
     |
-Starlette REST (:10904, daemon mode)   outbox/inbound = data/comms.db (WAL)
+Starlette REST (:11205, daemon mode)   outbox/inbound = data/comms.db (WAL)
 ```
 
 - Dual transport: stdio (default) or HTTP daemon when `MCP_PORT` set
