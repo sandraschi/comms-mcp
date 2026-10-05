@@ -54,6 +54,18 @@ export default function Dashboard() {
     const onboarded = Boolean(
         status?.configured && (status?.allowlist.length ?? 0) > 0,
     );
+    // MOCK-until-onboarded (ONBOARDING_STANDARD § Mock-until-onboarded):
+    // show clearly-badged sample data while unconfigured so the console is not
+    // a wall of zeros; the samples disappear the moment onboarding succeeds.
+    const mock = !onboarded && status !== null;
+    const mockTag = mock ? (
+        <span
+            data-testid="mock-badge"
+            className="ml-2 rounded bg-amber-500/20 px-1.5 py-0.5 text-xs font-medium text-amber-300"
+        >
+            MOCK
+        </span>
+    ) : null;
 
     return (
         <div className="space-y-6" data-testid="dashboard">
@@ -118,9 +130,12 @@ export default function Dashboard() {
                             data-testid="backend-dot"
                             className={`h-2 w-2 rounded-full ${status?.configured ? "bg-green-500" : "bg-red-500"}`}
                         />
-                        {status?.configured
-                            ? `@${status.bot}`
-                            : "not configured"}
+                        {mock
+                            ? "Joe Mocky (sample)"
+                            : status?.configured
+                              ? `@${status.bot}`
+                              : "not configured"}
+                        {mockTag}
                     </div>
                 </div>
                 <div
@@ -129,7 +144,8 @@ export default function Dashboard() {
                 >
                     <div className="text-sm text-zinc-300">Allowlist</div>
                     <div className="mt-1 text-lg font-semibold">
-                        {status?.allowlist.length ?? "…"} chats
+                        {mock ? 3 : (status?.allowlist.length ?? "…")} chats
+                        {mockTag}
                     </div>
                 </div>
                 <div
@@ -138,7 +154,8 @@ export default function Dashboard() {
                 >
                     <div className="text-sm text-zinc-300">Outbox</div>
                     <div className="mt-1 text-lg font-semibold">
-                        {outboxTotal}
+                        {mock ? 12 : outboxTotal}
+                        {mockTag}
                     </div>
                 </div>
                 <div
