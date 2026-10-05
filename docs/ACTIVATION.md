@@ -1,6 +1,6 @@
 # Activate comms — channel setup checklist
 
-All three channels behind `comms_ops(operation=…, channel=…)`. Each is a
+All four channels behind `comms_ops(operation=…, channel=…)`. Each is a
 2-minute setup; do them in any order. Everything stays in `.env` (never
 committed).
 

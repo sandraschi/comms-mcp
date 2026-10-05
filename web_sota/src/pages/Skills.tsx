@@ -60,7 +60,7 @@ export default function Skills() {
                             }`}
                         >
                             <div className="font-medium">{s.name}</div>
-                            <div className="mt-0.5 line-clamp-2 text-xs text-zinc-400">
+                            <div className="mt-0.5 line-clamp-2 text-sm text-zinc-400">
                                 {s.description}
                             </div>
                         </button>

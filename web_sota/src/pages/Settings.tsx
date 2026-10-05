@@ -170,7 +170,7 @@ export default function Settings() {
                                 {p.label}
                             </span>
                             <span
-                                className={`rounded px-1.5 py-0.5 text-xs ${
+                                className={`rounded px-1.5 py-0.5 text-sm ${
                                     p.kind === "local"
                                         ? "bg-green-500/10 text-green-300"
                                         : "bg-blue-500/10 text-blue-300"
@@ -180,7 +180,7 @@ export default function Settings() {
                                     ? "Local / free"
                                     : "Cloud / paid"}
                             </span>
-                            <span className="ml-auto font-mono text-xs text-zinc-400">
+                            <span className="ml-auto font-mono text-sm text-zinc-400">
                                 {p.base_url}
                             </span>
                         </div>
@@ -224,7 +224,7 @@ export default function Settings() {
                             </div>
                         )}
                         {p.note && (
-                            <div className="mt-2 text-xs text-zinc-500">
+                            <div className="mt-2 text-sm text-zinc-400">
                                 {p.note}
                             </div>
                         )}

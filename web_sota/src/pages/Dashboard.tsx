@@ -61,7 +61,7 @@ export default function Dashboard() {
     const mockTag = mock ? (
         <span
             data-testid="mock-badge"
-            className="ml-2 rounded bg-amber-500/20 px-1.5 py-0.5 text-xs font-medium text-amber-300"
+            className="ml-2 rounded bg-amber-500/20 px-1.5 py-0.5 text-sm font-medium text-amber-300"
         >
             MOCK
         </span>

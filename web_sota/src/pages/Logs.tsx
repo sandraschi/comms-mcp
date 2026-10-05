@@ -84,7 +84,7 @@ export default function Logs() {
                         key={i}
                         className="flex gap-3 rounded border border-zinc-900 bg-zinc-900/30 px-3 py-1.5"
                     >
-                        <span className="text-zinc-500">
+                        <span className="text-zinc-400">
                             {new Date(e.time).toLocaleTimeString()}
                         </span>
                         <span
