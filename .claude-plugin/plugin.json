@@ -1,0 +1,6 @@
+{
+  "name": "comms-mcp",
+  "description": "Fleet messaging gateway: Telegram, WhatsApp, Slack, Teams via comms_ops",
+  "version": "0.4.0",
+  "hooks": "../hooks/hooks.json"
+}
