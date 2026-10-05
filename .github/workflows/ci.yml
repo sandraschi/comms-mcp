@@ -1,0 +1,29 @@
+name: ci
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+jobs:
+  python:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - run: uv sync --extra dev
+      - run: uv run ruff check src/ tests/
+      - run: uv run ruff format src/ tests/ --check
+      - run: uv run pyright --pythonpath .venv/Scripts/python.exe src/
+      - run: uv run pytest -q
+  web:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web_sota/package-lock.json
+      - run: npm ci --prefix web_sota
+      - run: npm run --prefix web_sota biome:ci
+      - run: npm run --prefix web_sota typecheck
