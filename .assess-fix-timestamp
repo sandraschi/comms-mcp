@@ -1,1 +1,1 @@
-{"commit": "29d98f7164b8ca43868121be2731dfec3628f9a7", "host": "Goliath", "report": "docs/assess-reports/2026-10-05.md", "score_after": 66, "score_before": 0, "timestamp": "2026-10-05T18:53:26.4080492+02:00"}
+{"commit": "cfac2c60013d782311c677096faa2900eac697c5", "host": "Goliath", "report": "docs/assess-reports/2026-10-05.md", "score_after": 63, "score_before": 0, "score_note": "cold-context verified (not self-assessed); 3 independent runs 34 -> 47 -> 63; residual fixes after the 63 run are unverified", "timestamp": "2026-10-05T20:23:22.2750010+02:00"}
