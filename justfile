@@ -30,5 +30,8 @@ bootstrap:
     pre-commit install
     powershell.exe -NoProfile -Command "Push-Location web_sota; & \"$env:USERPROFILE\.bun\bin\bun.exe\" install; Pop-Location"
 
+e2e:
+    powershell.exe -NoProfile -Command "Push-Location web_sota; & \"$env:USERPROFILE\.bun\bin\bun.exe\" run e2e; Pop-Location"
+
 mcpb-pack:
     powershell.exe -NoProfile -File scripts/mcpb-pack.ps1
