@@ -19,7 +19,7 @@ device flow)** behind the same `comms_ops` surface.
 ## Stack
 
 - Backend: Python 3.11+, FastMCP 3.4, FastAPI, pydantic-settings, httpx, slack-sdk
-- Console: React 18 + Vite 5 + TailwindCSS 3 + Lucide + Framer Motion + axios
+- Console: React 18 + Vite 5 + TailwindCSS 3 + Lucide + Framer Motion + axios (**bun** for install/scripts, Vite stays on Node)
 - Sidecar: Node + baileys + express (`wa-sidecar/`, port 11208)
 - Quality: ruff (incl. T20), pyright, pytest + coverage gate, Biome + tsc, pre-commit
 

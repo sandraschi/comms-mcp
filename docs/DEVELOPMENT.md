@@ -29,7 +29,7 @@ just fmt      # ruff format (write)
 just fix      # ruff check --fix + format
 just types    # pyright src/
 just ci       # gates-green: lint + format --check + types + tests (+ web typecheck)
-just bootstrap  # uv sync --extra dev + pre-commit install + web npm ci
+just bootstrap  # uv sync --extra dev + pre-commit install + web bun install
 ```
 
 ## Backend endpoints

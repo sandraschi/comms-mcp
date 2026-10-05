@@ -20,8 +20,12 @@ Push-Location $Web
 $code = $LASTEXITCODE
 Pop-Location
 if ($code -ne 0) { exit $code }
+$tsc = @("tsc.cmd", "tsc.ps1", "tsc") | ForEach-Object {
+    Join-Path $binDir $_
+} | Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $tsc) { exit 0 }
 Push-Location $Web
-npx --no-install tsc --noEmit -p tsconfig.json
+& $tsc --noEmit -p tsconfig.json
 $code = $LASTEXITCODE
 Pop-Location
 exit $code

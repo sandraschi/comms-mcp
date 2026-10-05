@@ -8,7 +8,7 @@ retention, SQLite outbox. Backend :11205, console :11204, wa-sidecar :11208.
 
 - `uv run python -m comms_mcp` — stdio; `MCP_PORT=11205` → HTTP daemon
 - `just serve | test | lint | fix | fmt | types | ci | bootstrap | mcpb-pack`
-- Console: `web_sota/` (`npm run dev`, proxied to :11205 in dev, served from
+- Console: `web_sota/` (`bun run dev`, proxied to :11205 in dev, served from
   `:11205` root via `web_sota/dist` in daemon mode)
 - NSSM: `scripts/install-services.ps1` (elevated) — `comms-mcp` + `comms-mcp-wa`
 

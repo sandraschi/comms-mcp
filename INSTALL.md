@@ -20,8 +20,14 @@ smoke test → backend on :11205.
 
 ## What is NOT required globally
 
-Python, pip, Node, npm — nothing. uv handles Python; the server is pure Python.
+Python, pip — nothing for the backend. uv handles Python; the server is pure
+Python. Node and bun are only needed to **develop** the web console (a
+prebuilt `web_sota/dist` ships in the repo and is served by the backend).
 
 ## Globally required
 
-- `uv` (auto-installed by start.ps1 via winget) — nothing else.
+- `uv` (auto-installed by start.ps1 via winget) — backend.
+- **bun** (`C:\Users\sandr\.bun\bin\bun.exe`, or `winget install Oven-sh.Bun`)
+  — only for console work: `cd web_sota; bun install; bun run dev`. Node stays
+  installed (Vite runs on Node); bun replaces npm as package manager + runner.
+  See `mcp-central-docs/standards/BUN_STANDARDS.md`.
