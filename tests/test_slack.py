@@ -80,13 +80,12 @@ async def test_send_proxies_webapi(monkeypatch):
 
 
 def test_inbound_skips_bot_messages():
+    import asyncio
+
     async def run():
         await slack._handle_inbound_event({"subtype": "bot_message", "text": "echo"})
         await slack._handle_inbound_event({"bot_id": "B1", "text": "echo2"})
         assert store.list_inbound(db_path=_DB) == []
-
-    pytest.mark.asyncio(run)()
-    import asyncio
 
     asyncio.run(run())
 
@@ -105,4 +104,3 @@ def test_inbound_stores_sanitized():
         assert "SAFETY" in rows[0]["text"] or "comms-mcp" in rows[0]["text"]
 
     asyncio.run(run())
-

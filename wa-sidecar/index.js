@@ -6,7 +6,7 @@
  * webhook (COMMS_INBOUND_WEBHOOK) where they are sanitized + stored.
  *
  * Env:
- *   WA_PORT              sidecar listen port (default 10709)
+ *   WA_PORT              sidecar listen port (default 11208)
  *   COMMS_INBOUND_WEBHOOK comms-mcp inbound URL, e.g.
  *                         http://127.0.0.1:11205/api/v1/inbound/wa
  *
@@ -25,9 +25,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PORT = Number(process.env.WA_PORT || 10709);
+const PORT = Number(process.env.WA_PORT || 11208);
 const AUTH_DIR = path.join(__dirname, '..', 'data', 'wa-auth');
 const INBOUND_WEBHOOK = process.env.COMMS_INBOUND_WEBHOOK || 'http://127.0.0.1:11205/api/v1/inbound/wa';
+// Shared secret for the backend webhook (must match COMMS_INBOUND_SECRET).
+const INBOUND_SECRET = process.env.COMMS_INBOUND_SECRET || '';
 
 mkdirSync(AUTH_DIR, { recursive: true });
 
@@ -47,7 +49,10 @@ async function forwardInbound(message) {
     try {
         await fetch(INBOUND_WEBHOOK, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                ...(INBOUND_SECRET ? { 'X-Comms-Secret': INBOUND_SECRET } : {}),
+            },
             body: JSON.stringify({ from: message.key?.remoteJid || '?', text }),
         });
     } catch (err) {
@@ -124,4 +129,3 @@ start().catch((err) => {
     console.error('[wa-sidecar] fatal:', err);
     process.exit(1);
 });
-
