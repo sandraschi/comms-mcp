@@ -24,11 +24,15 @@ test.describe("comms console nav walk", () => {
     test("dashboard shows hero + onboarding cue when unconfigured", async ({ page }) => {
         await page.goto("/");
         await expect(page.getByTestId("hero")).toBeVisible();
-        // The cue renders only when no bot/allowlist is configured; accept
-        // either the cue or a configured bot dot (CI may have creds).
-        const cue = page.getByTestId("onboarding-cue");
-        const dot = page.getByTestId("backend-dot");
-        await expect(cue.or(dot)).toBeVisible();
+        // The cue renders when no bot/allowlist is configured; the bot dot
+        // always renders. Assert whichever applies without a strict-mode race
+        // (both can be present when the backend is reachable but unconfigured).
+        const cueCount = await page.getByTestId("onboarding-cue").count();
+        if (cueCount > 0) {
+            await expect(page.getByTestId("onboarding-cue")).toBeVisible();
+        } else {
+            await expect(page.getByTestId("backend-dot")).toBeVisible();
+        }
     });
 
     test("chat shows provider + model selects", async ({ page }) => {

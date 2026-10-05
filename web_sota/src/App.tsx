@@ -84,6 +84,17 @@ const NAV = [
 ];
 
 export default function App() {
+    const [caps, setCaps] = useState<{
+        version: string;
+        channels: string[];
+    } | null>(null);
+    useEffect(() => {
+        api.get("/capabilities")
+            .then((r) => setCaps(r.data))
+            .catch(() => {
+                /* sidebar falls back to the static label */
+            });
+    }, []);
     return (
         <div
             className="flex min-h-screen bg-zinc-950 text-zinc-100"
@@ -95,7 +106,9 @@ export default function App() {
                     <div>
                         <div className="text-sm font-semibold">comms-mcp</div>
                         <div className="text-sm text-zinc-300">
-                            v0.4 · 4 channels
+                            {caps
+                                ? `v${caps.version} · ${caps.channels.length} channels`
+                                : "connecting…"}
                         </div>
                     </div>
                 </div>

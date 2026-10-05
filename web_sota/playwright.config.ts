@@ -16,7 +16,10 @@ export default defineConfig({
         trace: "on-first-retry",
     },
     webServer: {
-        command: "bun run dev -- --port 11204 --host 127.0.0.1",
+        // Run vite via node + the local bin: a bare `bun`/`npm` is not on PATH
+        // in the spawned shell on this box (the fleet's off-PATH tool trap).
+        command:
+            "node node_modules/vite/bin/vite.js --port 11204 --host 127.0.0.1",
         url: "http://127.0.0.1:11204",
         reuseExistingServer: true,
         timeout: 120_000,
