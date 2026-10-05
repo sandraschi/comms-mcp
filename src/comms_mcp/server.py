@@ -18,6 +18,7 @@ from starlette.responses import JSONResponse
 
 from . import __version__
 from .config import chat_allowlist, get_settings
+from .llm import register_llm_routes
 from .mcp import context, tools  # noqa: F401  # imports register tools/resources
 from .outbox import sqlite as store
 from .registry import mcp  # noqa: F401  # re-exported for stdio entry
@@ -249,6 +250,10 @@ async def api_shutdown():
     threading.Thread(target=_exit, daemon=True, name="comms-shutdown").start()
     log.warning("shutdown requested via REST - exiting in 500 ms")
     return {"success": True, "message": "shutting down"}
+
+
+# Local + cloud LLM provider surface (WEBAPP_SOTA_STANDARDS §VI).
+register_llm_routes(app)
 
 
 @app.post("/api/v1/inbound/wa")
