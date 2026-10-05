@@ -72,10 +72,30 @@ async def _lifespan_body():
 
 # REST surface (webapp + diagnostics)
 app = FastAPI(title="comms-mcp", version=__version__, lifespan=lifespan)
+_FRONTEND_PORT = 11204
+_BACKEND_PORT = 11205
+_cors_origins = [
+    f"http://localhost:{_FRONTEND_PORT}",
+    f"http://127.0.0.1:{_FRONTEND_PORT}",
+    f"http://localhost:{_BACKEND_PORT}",
+    f"http://127.0.0.1:{_BACKEND_PORT}",
+    # Tauri WebView (CORS_STANDARD §The Pattern)
+    "tauri://localhost",
+    "http://tauri.localhost",
+    "https://tauri.localhost",
+]
+# Broad LAN + Tailscale, applied unconditionally (CORS_STANDARD.md).
+_cors_regex = (
+    r"https?://(?:[a-zA-Z0-9-]+\.ts\.net|.*?\.tail-[a-f0-9]+\.ts\.net"
+    r"|tauri\.localhost|localhost|127\.0\.0\.1"
+    r"|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|100\.\d{1,3}\.\d{1,3}\.\d{1,3})"
+    r"(?::\d+)?$|^tauri://localhost$"
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:11204", "http://127.0.0.1:11204"],
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_origins=_cors_origins,
+    allow_origin_regex=_cors_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
