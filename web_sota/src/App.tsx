@@ -1,11 +1,28 @@
 import axios from "axios";
-import { HelpCircle, Inbox, LayoutDashboard, Send, Shield } from "lucide-react";
+import {
+    BookOpen,
+    Bot,
+    HelpCircle,
+    Inbox as InboxIcon,
+    LayoutDashboard,
+    ScrollText,
+    Send,
+    Settings2,
+    Shield,
+    Wrench,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
 import Allowlist from "./pages/Allowlist";
+import Chat from "./pages/Chat";
 import Dashboard from "./pages/Dashboard";
 import Help from "./pages/Help";
+import Inbox from "./pages/Inbox";
+import Logs from "./pages/Logs";
 import Outbox from "./pages/Outbox";
+import Settings from "./pages/Settings";
+import Skills from "./pages/Skills";
+import Tools from "./pages/Tools";
 
 const api = axios.create({ baseURL: "/api", timeout: 10000 });
 
@@ -55,8 +72,14 @@ export const useStatus = () => {
 
 const NAV = [
     { to: "/", label: "Dashboard", icon: LayoutDashboard },
+    { to: "/inbox", label: "Inbox", icon: InboxIcon },
     { to: "/outbox", label: "Outbox", icon: Send },
+    { to: "/chat", label: "Chat", icon: Bot },
+    { to: "/tools", label: "Tools", icon: Wrench },
+    { to: "/skills", label: "Skills", icon: BookOpen },
     { to: "/allowlist", label: "Allowlist", icon: Shield },
+    { to: "/settings", label: "Settings", icon: Settings2 },
+    { to: "/logs", label: "Logs", icon: ScrollText },
     { to: "/help", label: "Help", icon: HelpCircle },
 ];
 
@@ -68,7 +91,7 @@ export default function App() {
         >
             <aside className="w-52 shrink-0 border-r border-zinc-800 bg-zinc-900/40 p-4">
                 <div className="mb-6 flex items-center gap-2">
-                    <Inbox className="h-5 w-5 text-amber-400" />
+                    <InboxIcon className="h-5 w-5 text-amber-400" />
                     <div>
                         <div className="text-sm font-semibold">comms-mcp</div>
                         <div className="text-sm text-zinc-300">
@@ -98,8 +121,14 @@ export default function App() {
             <main className="flex-1 p-8">
                 <Routes>
                     <Route path="/" element={<Dashboard />} />
+                    <Route path="/inbox" element={<Inbox />} />
                     <Route path="/outbox" element={<Outbox />} />
+                    <Route path="/chat" element={<Chat />} />
+                    <Route path="/tools" element={<Tools />} />
+                    <Route path="/skills" element={<Skills />} />
                     <Route path="/allowlist" element={<Allowlist />} />
+                    <Route path="/settings" element={<Settings />} />
+                    <Route path="/logs" element={<Logs />} />
                     <Route path="/help" element={<Help />} />
                 </Routes>
             </main>
