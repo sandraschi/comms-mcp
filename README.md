@@ -8,7 +8,7 @@ device flow)** behind the same `comms_ops` surface.
 
 | Surface | Detail |
 |---|---|
-| MCP tools | `comms_ops(operation=send\|read_recent\|list_threads\|status\|auth\|help, channel=…)` + `comms_shutdown(confirm=True)` |
+| MCP tools | `comms_ops(operation=send\|read_recent\|list_threads\|status\|auth\|help, channel=…)` + `comms_shutdown(confirm=True)` + `comms_show_status()` (Prefab card) |
 | MCP resource/prompt | `comms://status`, `comms_send_briefing`, skill `skill://comms` |
 | Send | Allowlist-gated per channel, outbox-logged (pending/sent/failed) |
 | Inbound | Sanitized (prompt-injection neutralized), **7-day body TTL** |

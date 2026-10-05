@@ -1,6 +1,7 @@
 import { Bot, Loader2, Send, Trash2, User } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { api } from "../App";
 import { type ChatMessage, streamChat } from "../lib/llm";
 import { useLlm } from "../store/llm";
 
@@ -37,11 +38,24 @@ export default function Chat() {
     const [input, setInput] = useState("");
     const [streaming, setStreaming] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [skillPrompt, setSkillPrompt] = useState(SKILL_PROMPT);
     const bottomRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         void detect();
     }, [detect]);
+
+    // Skill-first: load the server's own SKILL.md as the system preprompt.
+    useEffect(() => {
+        api.get("/skills/comms")
+            .then((r) => {
+                const content = (r.data?.content ?? "").trim();
+                if (content) setSkillPrompt(`${SKILL_PROMPT}\n\n${content}`);
+            })
+            .catch(() => {
+                /* keep the built-in fallback prompt */
+            });
+    }, []);
 
     useEffect(() => {
         localStorage.setItem(LS_HISTORY, JSON.stringify(history.slice(-100)));
@@ -56,7 +70,7 @@ export default function Chat() {
         setInput("");
         setError(null);
         const base: ChatMessage[] = [
-            { role: "system", content: SKILL_PROMPT },
+            { role: "system", content: skillPrompt },
             ...history,
             { role: "user", content: text },
         ];

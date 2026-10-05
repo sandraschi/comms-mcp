@@ -26,7 +26,16 @@ from ...registry import mcp
 log = logging.getLogger("comms_mcp.prefab")
 
 
-@mcp.tool(app=True)
+@mcp.tool(
+    annotations={
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+    output_schema={"type": "object"},
+    app=True,
+)
 async def comms_show_status() -> PrefabApp:
     """COMMS_SHOW_STATUS - Live comms-mcp status as a rich in-chat card.
 

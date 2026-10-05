@@ -213,7 +213,8 @@ export default function Dashboard() {
 
             <div className="flex items-center gap-2 text-sm text-zinc-400">
                 <Activity className="h-3.5 w-3.5" />
-                backend :11205 · console :11204 · inbound sanitized · 7-day TTL
+                serving {window.location.host} · inbound sanitized ·{" "}
+                {status?.retention_days ?? 7}-day TTL
             </div>
         </div>
     );

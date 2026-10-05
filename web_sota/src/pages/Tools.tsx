@@ -68,7 +68,10 @@ export default function Tools() {
                         <h2 className="text-sm font-semibold text-zinc-100">
                             REST ({caps.rest.length})
                         </h2>
-                        <ul className="mt-2 space-y-1 font-mono text-sm text-zinc-300">
+                        <ul
+                            data-testid="tools-rest"
+                            className="mt-2 space-y-1 font-mono text-sm text-zinc-300"
+                        >
                             {caps.rest.map((r) => (
                                 <li key={r}>{r}</li>
                             ))}
