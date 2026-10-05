@@ -24,6 +24,7 @@ ci:
     uv run ruff format src/ tests/ --check
     uv run pyright src/
     uv run pytest -q
+    powershell.exe -NoProfile -Command "Push-Location web_sota; & \"$env:USERPROFILE\.bun\bin\bun.exe\" run biome:ci; & \"$env:USERPROFILE\.bun\bin\bun.exe\" run typecheck; Pop-Location"
 
 bootstrap:
     uv sync --extra dev
@@ -32,6 +33,8 @@ bootstrap:
 
 e2e:
     powershell.exe -NoProfile -Command "Push-Location web_sota; & \"$env:USERPROFILE\.bun\bin\bun.exe\" run e2e; Pop-Location"
+
+cua-webapp-test: e2e
 
 mcpb-pack:
     powershell.exe -NoProfile -File scripts/mcpb-pack.ps1

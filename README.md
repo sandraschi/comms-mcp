@@ -1,6 +1,6 @@
 # comms-mcp — Unified fleet comms gateway
 
-![python](https://img.shields.io/badge/python-3.11%2B-blue) ![fastmcp](https://img.shields.io/badge/fastmcp-3.4-green) ![ruff](https://img.shields.io/badge/ruff-clean-green) ![tests](https://img.shields.io/badge/pytest-24%20passing-green)
+![python](https://img.shields.io/badge/python-3.11%2B-blue) ![fastmcp](https://img.shields.io/badge/fastmcp-3.4-green) ![ruff](https://img.shields.io/badge/ruff-clean-green) ![tests](https://img.shields.io/badge/pytest-31%20passing-green)
 
 One portmanteau tool, all messaging channels behind adapters. **v0.4 ships
 Telegram, WhatsApp (baileys sidecar), Slack (Socket Mode), and Teams (Graph
@@ -19,7 +19,7 @@ device flow)** behind the same `comms_ops` surface.
 ## Stack
 
 - Backend: Python 3.11+, FastMCP 3.4, FastAPI, pydantic-settings, httpx, slack-sdk
-- Console: React 18 + Vite 5 + TailwindCSS 3 + Lucide + Framer Motion + axios (**bun** for install/scripts, Vite stays on Node)
+- Console: React 18 + Vite 5 + TailwindCSS 3 + Lucide + Framer Motion + axios + **zustand** + react-router (**bun** for install/scripts, Vite stays on Node)
 - Sidecar: Node + baileys + express (`wa-sidecar/`, port 11208)
 - Quality: ruff (incl. T20), pyright, pytest + coverage gate, Biome + tsc, pre-commit
 

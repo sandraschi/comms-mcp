@@ -8,8 +8,8 @@ cd comms-mcp
 .\start.bat
 ```
 
-`start.bat` → `start.ps1` → `Require-Command` (uv via winget) → `uv sync` → import
-smoke test → backend on :11205.
+`start.bat` → `start.ps1` → `Require-Command` (uv via winget) → clear port :11205
+→ `uv sync` → backend on :11205 (`GET /health`).
 
 ## Manual
 

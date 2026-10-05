@@ -1,13 +1,13 @@
 # MCPB pack for comms-mcp (MCPB_PACKAGING_STANDARDS).
 # Fresh-stages src/ -> mcpb/src/ on every run (never ships a stale bundle).
-# Requires mcpb/manifest.json + assets (prompts 3-4-100) — see Phase 5 notes.
+# Requires mcpb/manifest.json + assets (prompts 3-4-100) - see Phase 5 notes.
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $Stage = Join-Path $Root "mcpb\src"
 
 $manifest = Join-Path $Root "mcpb\manifest.json"
 if (-not (Test-Path $manifest)) {
-    Write-Host "ERROR: mcpb/manifest.json missing — full MCPB packaging pass not done yet." -ForegroundColor Red
+    Write-Host "ERROR: mcpb/manifest.json missing - full MCPB packaging pass not done yet." -ForegroundColor Red
     Write-Host "See docs/assess-reports/2026-10-05.md (deferred H12/H13)." -ForegroundColor Yellow
     exit 1
 }
