@@ -66,8 +66,8 @@ async def _lifespan_body():
     if slack_client is not None:
         try:
             slack_client.disconnect()
-        except Exception:
-            pass
+        except Exception as exc:
+            log.warning("slack socket listener shutdown failed: %s", exc)
 
 
 # REST surface (webapp + diagnostics)

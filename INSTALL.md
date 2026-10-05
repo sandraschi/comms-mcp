@@ -21,8 +21,10 @@ smoke test → backend on :11205.
 ## What is NOT required globally
 
 Python, pip — nothing for the backend. uv handles Python; the server is pure
-Python. Node and bun are only needed to **develop** the web console (a
-prebuilt `web_sota/dist` ships in the repo and is served by the backend).
+Python. Node and bun are needed to build/develop the web console: `web_sota/dist`
+is **not shipped** (gitignored), so on a fresh clone run `cd web_sota; bun install;
+bun run build` to serve the console from the backend. The MCP server itself works
+without the console.
 
 ## Globally required
 

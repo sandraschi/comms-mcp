@@ -15,6 +15,8 @@ web_sota/dist/
 reports/
 .coverage
 *.mcpb
+mcpb/src/
+*.tsbuildinfo
 *.bak
 *.bak.*
 logs/
