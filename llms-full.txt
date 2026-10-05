@@ -1,44 +1,66 @@
-# comms-mcp — full LLM reference
+# comms-mcp — full LLM reference (v0.4.0)
 
-Unified fleet comms gateway (v0.1: Telegram Bot API). One portmanteau tool
-`comms_ops` with operations send / read_recent / list_threads / status / help.
+Unified fleet comms gateway. One portmanteau tool `comms_ops` with operations
+send / read_recent / list_threads / status / auth / help, plus `comms_shutdown`,
+resource `comms://status`, prompt `comms_send_briefing`, skill `skill://comms`.
 
 ## Install
 
 git clone https://github.com/sandraschi/comms-mcp; cd comms-mcp; copy .env.example .env
-set COMMS_TELEGRAM_BOT_TOKEN (from @BotFather) + COMMS_TELEGRAM_CHAT_IDS (allowlist)
+Per-channel setup (2-5 min each): docs/ONBOARDING.md
 just serve  (or uv run python -m comms_mcp; MCP_PORT=11205 -> HTTP daemon)
 
 ## Tools
 
-comms_ops(operation="send", channel="telegram", chat_id="<id>", text="<body>")
-  - allowlist-gated; returns {success, outbox_id, message_id}
+comms_ops(operation="send", channel="telegram|whatsapp|slack|teams", chat_id="<id>", text="<body>")
+  - allowlist-gated per channel; returns {success, message, outbox_id, message_id|ts}
 comms_ops(operation="read_recent", channel="telegram")
   - polls getUpdates, sanitizes inbound, returns recent messages
-comms_ops(operation="list_threads", channel="telegram")  -> allowlist
-comms_ops(operation="status", channel="telegram")        -> bot + allowlist + stats
-comms_ops(operation="help", channel="telegram")          -> setup steps
+comms_ops(operation="list_threads", channel="...")  -> allowlist for the channel
+comms_ops(operation="status", channel="...")        -> identity + configured + allowlist + stats
+comms_ops(operation="auth", channel="teams")        -> Graph device-code start/poll
+comms_ops(operation="help", channel="...")          -> per-channel setup steps
+comms_shutdown(confirm=True)                        -> orderly daemon exit (500 ms)
 
 ## Config (env, prefix COMMS_)
 
 TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_IDS, TELEGRAM_API_BASE,
-DB_PATH, RETENTION_DAYS (7), MCP_PORT, MCP_HOST
+WHATSAPP_SIDECAR_URL, WHATSAPP_ALLOW_NUMBERS,
+SLACK_APP_TOKEN, SLACK_BOT_TOKEN, SLACK_CHANNEL_IDS,
+GRAPH_CLIENT_ID, TEAMS_RECIPIENTS, TEAMS_TOKEN_FILE, TEAMS_GRAPH_BASE,
+DB_PATH, RETENTION_DAYS (7), INBOUND_SECRET, DAEMON_URL,
+MCP_PORT / PORT, MCP_HOST
 
 ## Architecture
 
-FastMCP server; adapters/telegram.py (httpx Bot API); outbox/sqlite.py
+FastMCP server; adapters/<channel>.py (allowlist + send + inbound); outbox/sqlite.py
 (outbox pending/sent/failed + inbound with TTL); sanitize.py (inbound
-injection neutralization, email-mcp pattern); Starlette REST /health,
-/api/v1/outbox, /api/v1/inbound in daemon mode. Dual transport per
-SOTA_REQUIREMENTS 2.3.
+injection neutralization); FastAPI REST + MCP streamable-HTTP at /mcp (daemon
+mode). Stdio instances probe the daemon and proxy when reachable.
+Dual transport per SOTA_REQUIREMENTS 2.3.
 
-## Roadmap
+## REST (HTTP daemon mode, MCP_PORT=11205)
 
-v0.2: Signal (signal-cli) + Slack (Socket Mode); v0.3: WhatsApp (baileys,
-self-hosted). All behind the same comms_ops surface. Ports 11205/11204.
+- GET /health — status + stats
+- GET /api/capabilities — server/channels/tools/endpoints
+- GET /api/skills — skill listing (skill-first agents)
+- GET /api/v1/outbox?status=&limit= — delivery log
+- GET /api/v1/inbound?chat_id=&limit= — recent inbound
+- GET /api/v1/status — bot + allowlist + stats
+- POST /api/v1/send — {chat_id, text}, allowlist-gated
+- POST /api/v1/inbound/wa — wa-sidecar webhook (X-Comms-Secret when set)
+- POST /api/shutdown — orderly exit (NSSM-safe bounce)
+- /mcp — MCP streamable HTTP (both /mcp and /mcp/ answer)
+
+## Ports
+
+11205 backend (FastAPI + FastMCP /mcp), 11204 console (Vite dev; served from
+backend root via web_sota/dist in daemon mode), 11208 wa-sidecar.
 
 ## Troubleshooting
 
 - status shows configured:false -> token missing/empty
-- send blocked: chat not in allowlist -> add to COMMS_TELEGRAM_CHAT_IDS
-- 404 from Telegram -> token wrong or bot token pasted with "bot" prefix
+- send blocked: chat not in allowlist -> add to the channel allowlist env
+- 404 from Telegram -> token wrong or pasted with "bot" prefix
+- wa 503: sidecar not connected -> re-scan QR (:11208/qr)
+- Full table: docs/TROUBLESHOOTING.md

@@ -21,6 +21,18 @@ Ports: backend 11205 (reserved 11205/11204 per WEBAPP_PORTS.md).
 - Token only via `.env` (`COMMS_TELEGRAM_BOT_TOKEN`) — never hardcode.
 - Adapters: one module per channel in `adapters/`, registered in `comms_ops`.
 
+## HTTP daemon + stdio proxy
+
+- Daemon port **11205** (`MCP_PORT`/`PORT` env; `MCP_HOST` default 127.0.0.1).
+  NSSM service name: `comms-mcp` (sidecar: `comms-mcp-wa` on :11208).
+- The daemon owns `data/comms.db` (override `COMMS_DB_PATH`, absolute for NSSM).
+- Stdio instances probe `COMMS_DAEMON_URL` (default
+  `http://127.0.0.1:<MCP_PORT or 11205>/health`) and `FastMCP.as_proxy()` the
+  daemon's `/mcp` when reachable — no double-daemon.
+- Bounce orderly: `POST /api/shutdown` (or `comms_shutdown(confirm=True)`),
+  then `Restart-Service`; never kill the child process.
+- NSSM env pins `USERPROFILE` + absolute `COMMS_DB_PATH` (split-brain guard).
+
 ## Files
 
 - `src/comms_mcp/adapters/telegram.py` — Bot API (httpx)
