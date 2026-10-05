@@ -5,7 +5,7 @@
   "repository": "https://github.com/sandraschi/comms-mcp",
   "license": "MIT",
   "tags": ["telegram", "whatsapp", "slack", "teams", "comms", "messaging", "fleet"],
-  "tools": ["comms_ops", "comms_shutdown"],
+  "tools": ["comms_ops", "comms_shutdown", "comms_show_status"],
   "resources": ["comms://status"],
   "prompts": ["comms_send_briefing"]
 }

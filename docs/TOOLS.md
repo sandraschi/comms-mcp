@@ -25,11 +25,12 @@
 - `GET /api/v1/outbox?status=&limit=` — delivery log
 - `GET /api/v1/inbound?chat_id=&limit=` — recent inbound
 - `POST /api/shutdown` — orderly exit (NSSM-safe bounce)
-- `/mcp` — MCP streamable HTTP (`comms_ops`, `comms_shutdown`)
+- `/mcp` — MCP streamable HTTP (`comms_ops`, `comms_shutdown`, `comms_show_status`)
 
 ## Admin
 
 - `comms_shutdown(confirm=True)` — orderly daemon exit after 500 ms
+- `comms_show_status()` — Prefab card (`app=True`): bot identity, allowlist size, outbox counts
 
 ## WhatsApp (v0.2, via Node baileys sidecar)
 - \comms_ops\ gains channel=\"whatsapp\": send (E.164, allowlist COMMS_WHATSAPP_ALLOW_NUMBERS), status (pairing QR via sidecar), list_threads (allowlist)

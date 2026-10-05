@@ -17,6 +17,10 @@ reports/
 *.mcpb
 mcpb/src/
 *.tsbuildinfo
+test-results/
+playwright-report/
+web_sota/test-results/
+web_sota/playwright-report/
 *.bak
 *.bak.*
 logs/

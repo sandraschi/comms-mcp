@@ -21,6 +21,7 @@ comms_ops(operation="status", channel="...")        -> identity + configured + a
 comms_ops(operation="auth", channel="teams")        -> Graph device-code start/poll
 comms_ops(operation="help", channel="...")          -> per-channel setup steps
 comms_shutdown(confirm=True)                        -> orderly daemon exit (500 ms)
+comms_show_status()                                 -> Prefab status card (bot, allowlist, outbox stats)
 
 ## Config (env, prefix COMMS_)
 
