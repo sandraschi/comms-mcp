@@ -7,6 +7,8 @@ All settings via env (prefix `COMMS_`) or `.env`:
 | `COMMS_TELEGRAM_BOT_TOKEN` | "" | Telegram bot token (@BotFather) |
 | `COMMS_TELEGRAM_CHAT_IDS` | "" | Comma-separated chat-id allowlist (send gate) |
 | `COMMS_TELEGRAM_API_BASE` | https://api.telegram.org | API base (tests/proxy) |
+| `COMMS_WHATSAPP_SIDECAR_URL` | http://127.0.0.1:11208 | Baileys sidecar base URL |
+| `COMMS_WHATSAPP_ALLOW_NUMBERS` | "" | Comma-separated E.164 allowlist |
 | `COMMS_SLACK_APP_TOKEN` | "" | Slack Socket Mode app token (xapp-*) |
 | `COMMS_SLACK_BOT_TOKEN` | "" | Slack Web API bot token (xoxb-*) |
 | `COMMS_SLACK_CHANNEL_IDS` | "" | Comma-separated channel allowlist |
@@ -14,7 +16,9 @@ All settings via env (prefix `COMMS_`) or `.env`:
 | `COMMS_TEAMS_RECIPIENTS` | "" | Teams allowlist: `name=email` or `name=19:chatId` |
 | `COMMS_TEAMS_TOKEN_FILE` | data/teams_oauth.json | Teams OAuth token store (device flow) |
 | `COMMS_TEAMS_GRAPH_BASE` | https://graph.microsoft.com/v1.0 | Graph API base |
-| `COMMS_DB_PATH` | data/comms.db | SQLite store (WAL) |
+| `COMMS_DB_PATH` | data/comms.db | SQLite store (WAL; absolute path for NSSM) |
 | `COMMS_RETENTION_DAYS` | 7 | Inbound body TTL |
+| `COMMS_INBOUND_SECRET` | "" | Shared secret for the wa webhook (X-Comms-Secret) |
+| `COMMS_DAEMON_URL` | http://127.0.0.1:\<MCP_PORT or 11205\>/mcp | Stdio probe target |
 | `MCP_PORT` / `PORT` | — | HTTP daemon port (else stdio) |
 | `MCP_HOST` | 127.0.0.1 | Daemon bind |

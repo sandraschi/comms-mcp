@@ -20,12 +20,20 @@
 ## REST (HTTP daemon mode, MCP_PORT=11205)
 
 - `GET /health` — status + stats
+- `GET /api/capabilities` — server/channels/tools/endpoints
+- `GET /api/skills` — skill listing (skill-first agents)
 - `GET /api/v1/outbox?status=&limit=` — delivery log
 - `GET /api/v1/inbound?chat_id=&limit=` — recent inbound
+- `POST /api/shutdown` — orderly exit (NSSM-safe bounce)
+- `/mcp` — MCP streamable HTTP (`comms_ops`, `comms_shutdown`)
+
+## Admin
+
+- `comms_shutdown(confirm=True)` — orderly daemon exit after 500 ms
 
 ## WhatsApp (v0.2, via Node baileys sidecar)
 - \comms_ops\ gains channel=\"whatsapp\": send (E.164, allowlist COMMS_WHATSAPP_ALLOW_NUMBERS), status (pairing QR via sidecar), list_threads (allowlist)
-- Pair once: start wa-sidecar (node wa-sidecar), GET :10709/qr, scan with the phone (Linked devices)
+- Pair once: start wa-sidecar (node wa-sidecar), GET :11208/qr, scan with the phone (Linked devices)
 - Inbound: sidecar POSTs to /api/v1/inbound/wa - sanitized + stored with TTL
 
 ## Slack (v0.3, official SDK, Socket Mode)
@@ -39,4 +47,3 @@
 - Auth: `comms_ops(operation="auth", channel="teams")` -> enter the code at microsoft.com/devicelogin -> call auth again to confirm
 - Allowlist format: `steve=stephanschipal@hotmail.com` (email) or `channel=19:xxxx` (existing chat id); send resolves the target to a Teams chat and posts /chats/{id}/messages
 - Note: Graph chat APIs need an organizational (work/school) identity; consumer accounts have limited /chats support
-
