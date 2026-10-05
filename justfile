@@ -28,7 +28,7 @@ ci:
 bootstrap:
     uv sync --extra dev
     pre-commit install
-    npm ci --prefix web_sota
+    powershell.exe -NoProfile -Command "Push-Location web_sota; & \"$env:USERPROFILE\.bun\bin\bun.exe\" install; Pop-Location"
 
 mcpb-pack:
     powershell.exe -NoProfile -File scripts/mcpb-pack.ps1

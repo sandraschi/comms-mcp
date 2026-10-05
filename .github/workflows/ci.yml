@@ -19,11 +19,14 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: web_sota/package-lock.json
-      - run: npm ci --prefix web_sota
-      - run: npm run --prefix web_sota biome:ci
-      - run: npm run --prefix web_sota typecheck
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+        working-directory: web_sota
+      - run: bun run biome:ci
+        working-directory: web_sota
+      - run: bun run typecheck
+        working-directory: web_sota
+      - run: bun run build
+        working-directory: web_sota
