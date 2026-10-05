@@ -20,8 +20,27 @@ def main() -> None:
         uvicorn.run(app, host=host, port=int(port), log_level="warning")
         return
 
+    # Stdio (Claude Desktop): the HTTP daemon owns the SQLite store, so probe
+    # it first and proxy when reachable (SOTA 2.3) — else serve stdio directly.
     from comms_mcp.server import mcp
 
+    daemon = os.environ.get("COMMS_DAEMON_URL")
+    if not daemon:
+        probe_port = os.environ.get("MCP_PORT") or "11205"
+        daemon = f"http://127.0.0.1:{probe_port}/mcp"
+    try:
+        import httpx
+
+        base = daemon.removesuffix("/mcp")
+        r = httpx.get(f"{base}/health", timeout=3)
+        if r.status_code == 200:
+            from fastmcp import FastMCP
+
+            proxy = FastMCP.as_proxy(daemon)
+            proxy.run(transport="stdio")
+            return
+    except Exception:
+        pass
     mcp.run(transport="stdio")
 
 
