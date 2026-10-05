@@ -12,14 +12,17 @@ $services = @(
         Name    = "comms-mcp"
         Cmd     = "`"$uv`" run --project `"$Root`" python -m comms_mcp"
         Dir     = $Root
-        Env     = "MCP_PORT=11205"
+        # Split-brain guard: LocalSystem has its own profile/temp. Pin the
+        # user profile + an absolute DB path so the service and interactive
+        # runs share one store (TRAPS_AND_PITFALLS NSSM split-brain).
+        Env     = "MCP_PORT=11205;USERPROFILE=$env:USERPROFILE;COMMS_DB_PATH=$Root\data\comms.db"
         Log     = Join-Path $Root "logs"
     },
     @{
         Name    = "comms-mcp-wa"
         Cmd     = "`"$node`" index.js"
         Dir     = Join-Path $Root "wa-sidecar"
-        Env     = "WA_PORT=10709;COMMS_INBOUND_WEBHOOK=http://127.0.0.1:11205/api/v1/inbound/wa"
+        Env     = "WA_PORT=11208;COMMS_INBOUND_WEBHOOK=http://127.0.0.1:11205/api/v1/inbound/wa"
         Log     = Join-Path $Root "logs"
     }
 )
@@ -40,4 +43,3 @@ foreach ($svc in $services) {
     Write-Host "  $($svc.Name) installed + started" -ForegroundColor Green
 }
 Write-Host "Services installed. Console: http://127.0.0.1:11205" -ForegroundColor Cyan
-

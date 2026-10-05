@@ -1,5 +1,5 @@
 """Portmanteau imports - FastMCP registers tools at import time."""
 
-from . import comms  # noqa: F401  # import registers tools
+from . import admin, comms  # noqa: F401  # import registers tools
 
-__all__ = ["comms"]
+__all__ = ["admin", "comms"]

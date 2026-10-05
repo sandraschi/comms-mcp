@@ -22,7 +22,22 @@ logger = logging.getLogger("comms_mcp.tools")
 _Channel = Literal["telegram", "whatsapp", "slack", "teams"]
 
 
-@mcp.tool(annotations={"readonly": False}, version="0.4.0")
+def _error_response(operation: str, channel: str, error: str) -> dict[str, Any]:
+    """Shared error envelope with auto-logging (traceback via exception)."""
+    logger.exception("comms_ops %s/%s failed: %s", channel, operation, error)
+    return {"success": False, "message": error, "error": error}
+
+
+@mcp.tool(
+    annotations={
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": True,
+    },
+    output_schema={"type": "object"},
+    version="0.4.0",
+)
 async def comms_ops(
     operation: Annotated[
         Literal["send", "read_recent", "list_threads", "status", "auth", "help"],
@@ -61,14 +76,18 @@ async def comms_ops(
     try:
         if operation == "status":
             if channel == "whatsapp":
-                return await whatsapp.status()
+                result = await whatsapp.status()
+                return {"message": "whatsapp status", **result}
             if channel == "slack":
-                return await slack.status()
+                result = await slack.status()
+                return {"message": "slack status", **result}
             if channel == "teams":
-                return await teams.status()
+                result = await teams.status()
+                return {"message": "teams status", **result}
             ok = await telegram.get_me()
             return {
                 "success": ok.get("ok", False),
+                "message": "telegram status",
                 "channel": "telegram",
                 "configured": bool(ok.get("ok")),
                 "bot": (ok.get("result") or {}).get("username"),
@@ -77,26 +96,55 @@ async def comms_ops(
             }
         if operation == "list_threads":
             if channel == "whatsapp":
-                return {"success": True, "channel": "whatsapp", "threads": whatsapp.allow_numbers()}
+                return {
+                    "success": True,
+                    "message": "whatsapp allowlist",
+                    "channel": "whatsapp",
+                    "threads": whatsapp.allow_numbers(),
+                }
             if channel == "slack":
-                return {"success": True, "channel": "slack", "threads": slack.allow_channels()}
+                return {
+                    "success": True,
+                    "message": "slack allowlist",
+                    "channel": "slack",
+                    "threads": slack.allow_channels(),
+                }
             if channel == "teams":
-                return {"success": True, "channel": "teams", "threads": teams.allow_list()}
-            return {"success": True, "channel": "telegram", "threads": chat_allowlist()}
+                return {
+                    "success": True,
+                    "message": "teams allowlist",
+                    "channel": "teams",
+                    "threads": teams.allow_list(),
+                }
+            return {
+                "success": True,
+                "message": "telegram allowlist",
+                "channel": "telegram",
+                "threads": chat_allowlist(),
+            }
         if operation == "send":
             if not chat_id:
-                return {"success": False, "error": "chat_id required"}
+                error = "chat_id required"
+                return {"success": False, "message": error, "error": error}
             return await _do_send(channel, chat_id, text)
         if operation == "auth":
             if channel == "teams":
-                return teams.auth_status()
-            return {"success": False, "error": f"auth not supported for channel {channel}"}
+                result = teams.auth_status()
+                return {"message": "teams device-flow status", **result}
+            error = f"auth not supported for channel {channel}"
+            return {"success": False, "message": error, "error": error}
         if operation == "read_recent":
             await telegram.poll_updates()
-            return {"success": True, "messages": store.list_inbound()}
+            messages = store.list_inbound()
+            return {
+                "success": True,
+                "message": f"{len(messages)} recent messages",
+                "messages": messages,
+            }
         if operation == "help":
             return {
                 "success": True,
+                "message": "comms-mcp channel setup",
                 "setup": (
                     "Telegram: 1. BotFather -> token; 2. COMMS_TELEGRAM_BOT_TOKEN + "
                     "COMMS_TELEGRAM_CHAT_IDS; 3. comms_ops(operation='status')\n"
@@ -111,10 +159,10 @@ async def comms_ops(
                     "Retention: COMMS_RETENTION_DAYS (7)"
                 ),
             }
-        return {"success": False, "error": f"unknown operation {operation}"}
+        error = f"unknown operation {operation}"
+        return {"success": False, "message": error, "error": error}
     except Exception as exc:
-        logger.warning("comms_ops %s/%s failed: %s", channel, operation, exc)
-        return {"success": False, "error": str(exc)}
+        return _error_response(operation, channel, str(exc))
 
 
 async def _do_send(channel: str, chat_id: str, text: str) -> dict[str, Any]:
@@ -148,9 +196,11 @@ async def _do_send(channel: str, chat_id: str, text: str) -> dict[str, Any]:
             error = str(result.get("error", "send failed"))
         else:
             store.mark_failed(entry["id"], f"unknown channel {channel}")
+            error = f"unknown channel {channel}"
             return {
                 "success": False,
-                "error": f"unknown channel {channel}",
+                "message": error,
+                "error": error,
                 "outbox_id": entry["id"],
             }
     except Exception as exc:  # pragma: no cover - defensive
@@ -165,4 +215,4 @@ async def _do_send(channel: str, chat_id: str, text: str) -> dict[str, Any]:
             **{k: v for k, v in extra.items() if v is not None},
         }
     store.mark_failed(entry["id"], error)
-    return {"success": False, "error": error, "outbox_id": entry["id"]}
+    return {"success": False, "message": error, "error": error, "outbox_id": entry["id"]}
