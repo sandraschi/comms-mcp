@@ -1,0 +1,28 @@
+# .mcpbignore — comms-mcp (MCPB_PACKAGING_STANDARDS §2.4)
+# Never ship venvs, node, webapp sources, tests, data, or build staging.
+
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+node_modules/
+**/node_modules/
+web_sota/
+wa-sidecar/node_modules/
+tests/
+data/
+*.db
+*.db-*
+.env
+logs/
+reports/
+dist/
+build/
+target/
+*.bak
+*.bak.*
+mcpb/src/
+.git/
+.github/
+.vscode/
