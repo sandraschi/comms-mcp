@@ -1,7 +1,7 @@
 [project]
 name = "comms-mcp"
-version = "0.3.0"
-description = "Unified fleet comms gateway - Telegram (v0.1), WhatsApp baileys sidecar (v0.2), Slack Socket Mode (v0.3). comms_ops portmanteau, allowlists, 7-day retention."
+version = "0.4.0"
+description = "Unified fleet comms gateway - Telegram, WhatsApp baileys sidecar, Slack Socket Mode, Teams Graph. comms_ops portmanteau, allowlists, 7-day retention."
 requires-python = ">=3.11"
 dependencies = [
     "fastmcp>=3.4.4,<4",
@@ -19,6 +19,7 @@ dev = [
     "respx>=0.21.0",
     "ruff>=0.16.0,<0.17",
     "pyright>=1.1.411",
+    "pytest-cov>=7.1.0",
 ]
 
 [project.scripts]
@@ -34,15 +35,21 @@ packages = ["src/comms_mcp"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-addopts = ["-m", "not slow"]
+addopts = ["-m", "not slow", "--cov=comms_mcp", "--cov-report=term-missing", "--cov-fail-under=40"]
 markers = [
     "slow: subprocess or full-stack integration (excluded from default CI)",
 ]
+
+[tool.coverage.run]
+omit = ["src/comms_mcp/__main__.py", "src/comms_mcp/registry.py"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "W", "UP"]
+select = ["E", "F", "I", "N", "W", "UP", "T20"]
 
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["T20"]
+"scripts/**" = ["T20"]

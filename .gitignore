@@ -10,6 +10,12 @@ data/
 dist/
 build/
 node_modules/
-dist/
 web_sota/node_modules/
 web_sota/dist/
+reports/
+.coverage
+*.mcpb
+*.bak
+*.bak.*
+logs/
+!docs/assess-reports/
