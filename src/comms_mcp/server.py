@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections import deque
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -25,6 +27,43 @@ from .registry import mcp  # noqa: F401  # re-exported for stdio entry
 
 logging.basicConfig(level=logging.WARNING)
 log = logging.getLogger("comms_mcp")
+
+
+class _LogRing(logging.Handler):
+    """In-memory ring buffer backing GET /api/logs (last 500 records)."""
+
+    def __init__(self, capacity: int = 500) -> None:
+        super().__init__()
+        self._records: deque[dict[str, str]] = deque(maxlen=capacity)
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            self._records.append(
+                {
+                    "time": datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
+                    "level": record.levelname,
+                    "source": record.name,
+                    "message": record.getMessage(),
+                }
+            )
+        except Exception:  # logging must never raise into the app
+            pass
+
+    def entries(
+        self, level: str = "", source: str = "", search: str = "", limit: int = 100
+    ) -> list[dict[str, str]]:
+        rows = list(self._records)
+        if level:
+            rows = [r for r in rows if r["level"] == level.upper()]
+        if source:
+            rows = [r for r in rows if source.lower() in r["source"].lower()]
+        if search:
+            rows = [r for r in rows if search.lower() in r["message"].lower()]
+        return rows[-limit:]
+
+
+_log_ring = _LogRing()
+logging.getLogger().addHandler(_log_ring)
 
 # Mount the MCP streamable-HTTP app at /mcp (ports registry promises FastMCP
 # HTTP on 11205). BUG-008: http_app(path="/") + mount("/mcp") — never
@@ -233,6 +272,26 @@ async def api_skills():
                         description = line.split(":", 1)[1].strip()
             items.append({"name": name, "description": description, "uri": f"skill://{name}"})
     return {"skills": items}
+
+
+@app.get("/api/logs")
+async def api_logs(level: str = "", source: str = "", search: str = "", limit: int = 100):
+    """Recent log records from the in-memory ring (Logs page / Ctrl+L)."""
+    entries = _log_ring.entries(level=level, source=source, search=search, limit=limit)
+    return {"entries": entries, "count": len(entries)}
+
+
+@app.get("/api/skills/{name}")
+async def api_skill_content(name: str):
+    """Markdown body of one skill (Skill page render source)."""
+    skills_dir = Path(__file__).resolve().parent.parent.parent / "skills"
+    skill_file = skills_dir / name / "SKILL.md"
+    if not skill_file.is_file():
+        return JSONResponse({"error": "unknown skill"}, status_code=404)
+    return {
+        "name": name,
+        "content": skill_file.read_text(encoding="utf-8", errors="replace"),
+    }
 
 
 @app.post("/api/shutdown")
