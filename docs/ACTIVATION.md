@@ -9,7 +9,7 @@ committed).
 ```powershell
 cd comms-mcp
 copy .env.example .env
-just serve          # backend on :11205 (or MCP_PORT daemon)
+just serve          # stdio; set MCP_PORT=11205 for the HTTP daemon
 ```
 
 Verify: `comms_ops(operation="help")` and `http://127.0.0.1:11205/health`.

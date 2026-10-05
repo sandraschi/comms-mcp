@@ -24,15 +24,15 @@ ci:
     uv run ruff format src/ tests/ --check
     uv run pyright src/
     uv run pytest -q
-    powershell.exe -NoProfile -Command "Push-Location web_sota; & \"$env:USERPROFILE\.bun\bin\bun.exe\" run biome:ci; & \"$env:USERPROFILE\.bun\bin\bun.exe\" run typecheck; Pop-Location"
+    Push-Location web_sota; & "$env:USERPROFILE\.bun\bin\bun.exe" run biome:ci; & "$env:USERPROFILE\.bun\bin\bun.exe" run typecheck; Pop-Location
 
 bootstrap:
     uv sync --extra dev
     pre-commit install
-    powershell.exe -NoProfile -Command "Push-Location web_sota; & \"$env:USERPROFILE\.bun\bin\bun.exe\" install; Pop-Location"
+    Push-Location web_sota; & "$env:USERPROFILE\.bun\bin\bun.exe" install; Pop-Location
 
 e2e:
-    powershell.exe -NoProfile -Command "Push-Location web_sota; & \"$env:USERPROFILE\.bun\bin\bun.exe\" run e2e; Pop-Location"
+    Push-Location web_sota; & "$env:USERPROFILE\.bun\bin\bun.exe" run e2e; Pop-Location
 
 cua-webapp-test: e2e
 

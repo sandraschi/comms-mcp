@@ -238,7 +238,7 @@ async def api_capabilities():
         "server": "comms-mcp",
         "version": __version__,
         "channels": ["telegram", "whatsapp", "slack", "teams"],
-        "mcp_tools": ["comms_ops", "comms_shutdown"],
+        "mcp_tools": ["comms_ops", "comms_shutdown", "comms_show_status"],
         "rest": [
             "GET /health",
             "GET /api/v1/outbox",

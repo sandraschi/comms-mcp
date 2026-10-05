@@ -8,7 +8,7 @@ function StatusDot({ ok }: { ok: boolean }) {
     return ok ? (
         <CheckCircle2 className="h-4 w-4 text-green-400" />
     ) : (
-        <XCircle className="h-4 w-4 text-zinc-500" />
+        <XCircle className="h-4 w-4 text-zinc-400" />
     );
 }
 
