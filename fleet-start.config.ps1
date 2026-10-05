@@ -1,4 +1,4 @@
-﻿# Per-repo fleet start config for comms-mcp
+# Per-repo fleet start config for comms-mcp
 # Edit ports/backend target here - start.ps1 is fleet-standard.
 @{
     Name         = 'comms-mcp'
@@ -10,6 +10,7 @@
         Kind          = 'uvicorn'
         UvicornTarget = 'comms_mcp.server:app'
         SyncExtras    = @('dev')
+        SyncOnStart  = $true
         Env           = @{ WEB_PORT = '11205' }
     }
     Frontend = @{
