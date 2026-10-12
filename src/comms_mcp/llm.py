@@ -21,6 +21,7 @@ switch/evict). Endpoints:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -416,7 +417,7 @@ def register_llm_routes(app: FastAPI) -> None:
 
     @app.get("/api/llm/gpus")
     async def llm_gpus():
-        return {"gpus": llm_engine.gpu_vram()}
+        return {"gpus": await asyncio.to_thread(llm_engine.gpu_vram)}
 
     @app.get("/api/llm/loaded")
     async def llm_loaded():

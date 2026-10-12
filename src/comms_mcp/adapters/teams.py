@@ -19,6 +19,7 @@ target that has a Teams identity for reliable 1:1 chat.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import logging
@@ -221,7 +222,7 @@ def _account_from_id_token(id_token: str) -> str:
 async def status() -> dict[str, Any]:
     if not configured():
         return {"success": False, "configured": False, "error": "COMMS_GRAPH_CLIENT_ID not set"}
-    token = _access_token()
+    token = await asyncio.to_thread(_access_token)
     if not token:
         return {
             "success": False,
@@ -258,7 +259,7 @@ async def send_message(recipient: str, text: str) -> dict[str, Any]:
             "error": f"recipient {recipient} not in allowlist",
             "allowlist": allow,
         }
-    token = _access_token()
+    token = await asyncio.to_thread(_access_token)
     if not token:
         return {
             "success": False,
