@@ -274,6 +274,7 @@ dependencies = [
     { name = "prefab-ui" },
     { name = "pydantic-settings" },
     { name = "slack-sdk" },
+    { name = "uvicorn" },
 ]
 
 [package.optional-dependencies]
@@ -300,6 +301,7 @@ requires-dist = [
     { name = "respx", marker = "extra == 'dev'", specifier = ">=0.21.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.16.0,<0.17" },
     { name = "slack-sdk", specifier = ">=3.27" },
+    { name = "uvicorn", specifier = ">=0.30" },
 ]
 provides-extras = ["dev"]
 

@@ -1,8 +1,9 @@
 # comms-mcp
 
-Unified fleet comms gateway: Telegram Bot API v0.1 behind the `comms_ops`
-portmanteau (send/read_recent/list_threads/status/help). Allowlist-gated
-send, sanitized inbound, 7-day retention, SQLite outbox.
+Unified fleet comms gateway: one `comms_ops` tool sends and reads Telegram,
+WhatsApp (baileys sidecar), Slack (Socket Mode) and Microsoft Teams (Graph
+device flow). Allowlist-gated send, sanitized inbound with 7-day retention,
+SQLite outbox, local web console. Local-first; no cloud dependency.
 
 - Full docs: [llms-full.txt](llms-full.txt)
 - Repo: https://github.com/sandraschi/comms-mcp

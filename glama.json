@@ -3,6 +3,7 @@
   "version": "0.4.0",
   "description": "Unified fleet comms gateway - Telegram, WhatsApp (baileys sidecar), Slack (Socket Mode), Teams (Graph device flow). Allowlist-gated send, sanitized inbound with 7-day retention. comms_ops portmanteau.",
   "repository": "https://github.com/sandraschi/comms-mcp",
+  "homepage": "https://github.com/sandraschi/comms-mcp",
   "license": "MIT",
   "tags": ["telegram", "whatsapp", "slack", "teams", "comms", "messaging", "fleet"],
   "tools": ["comms_ops", "comms_shutdown", "comms_show_status"],

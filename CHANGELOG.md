@@ -20,6 +20,14 @@
 - Docs: ONBOARDING / DEVELOPMENT / TROUBLESHOOTING / CLAUDE.md; synced
   glama.json, llms-full.txt, README; session-ctx injectors (Claude/Cursor/
   Windsurf/Copilot/OpenCode/Antigravity)
+- MCPB packaging: manifest v0.2, icon, 3-4-100 prompts (system 3312w / user
+  4115w / 111 examples), fresh-copy pack + launch check (`just mcpb-pack`)
+- One-click launcher: `start.ps1`/`start.bat` state machine with `-Check`,
+  `-Yes`, `-NoStart`, `-Json`, `-Detach`, `-Stop`; `stop.bat`; never kills a
+  foreign process; syncs deps only when the venv is missing/broken
+- Agent install contract: `docs/AI_SETUP.md` + README paste line
+- README restructured (Quick Install, Let your AI install it, badges);
+  INSTALL.md Options A-D + LLM tiers; MIT LICENSE; `uvicorn` declared
 
 ## v0.4.0-teams (shipped before 2026-10-05; exact date unknown, reconstructed)
 
