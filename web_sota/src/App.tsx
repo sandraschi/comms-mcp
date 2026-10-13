@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
+import { apiUrl } from "./lib/api";
 import Allowlist from "./pages/Allowlist";
 import Chat from "./pages/Chat";
 import Dashboard from "./pages/Dashboard";
@@ -24,7 +25,7 @@ import Settings from "./pages/Settings";
 import Skills from "./pages/Skills";
 import Tools from "./pages/Tools";
 
-const api = axios.create({ baseURL: "/api", timeout: 10000 });
+const api = axios.create({ baseURL: apiUrl("/api"), timeout: 10000 });
 
 export interface StatusData {
     configured: boolean;

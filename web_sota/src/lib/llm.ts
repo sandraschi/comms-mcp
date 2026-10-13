@@ -1,4 +1,5 @@
 import { api } from "../App";
+import { apiUrl } from "./api";
 
 export interface LlmProvider {
     id: string;
@@ -64,7 +65,7 @@ export async function* streamChat(
     model: string,
     messages: ChatMessage[],
 ): AsyncGenerator<string, void, unknown> {
-    const res = await fetch("/api/llm/chat/stream", {
+    const res = await fetch(apiUrl("/api/llm/chat/stream"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ provider, model, messages }),
