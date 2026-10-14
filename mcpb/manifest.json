@@ -1,0 +1,32 @@
+{
+  "manifest_version": "0.2",
+  "name": "comms-mcp",
+  "version": "0.4.0",
+  "description": "Unified fleet comms gateway: Telegram, WhatsApp, Slack and Teams behind one comms_ops MCP tool. Allowlist-gated send, sanitized inbound, 7-day retention.",
+  "author": { "name": "Sandra Schipal" },
+  "server": {
+    "type": "python",
+    "entry_point": "run_server.py",
+    "mcp_config": {
+      "command": "uv",
+      "args": ["run", "--directory", "${PWD}", "run_server.py"],
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "comms_ops",
+      "description": "Send, read, list, status, auth and help across Telegram, WhatsApp, Slack and Teams (operation=..., channel=...)."
+    },
+    {
+      "name": "comms_shutdown",
+      "description": "Orderly shutdown of the HTTP daemon (confirm=True); flushes the SQLite outbox before exit."
+    },
+    {
+      "name": "comms_show_status",
+      "description": "Prefab status card: per-channel configured/health plus outbox and retention stats."
+    }
+  ]
+}
