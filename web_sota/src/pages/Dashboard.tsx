@@ -78,21 +78,31 @@ export default function Dashboard() {
                     Send and read Telegram, WhatsApp, Slack, and Teams from one
                     place. Sends are allowlist-gated server-side; inbound is
                     sanitized and retained {status?.retention_days ?? 7} days.
-                    Start below with a test send, or open Help for per-channel
+                    Wire a channel in Settings, or open Help for per-channel
                     setup.
                 </p>
             </div>
 
             {!onboarded && (
                 <Link
-                    to="/help"
+                    to="/settings"
                     data-testid="onboarding-cue"
                     className="block rounded-xl border border-red-500/50 bg-red-500/10 p-4 text-sm text-red-200 hover:bg-red-500/20"
                 >
                     <span className="font-semibold">Not onboarded:</span> no bot
-                    configured or allowlist empty — follow the 2-minute setup in
-                    Help to send your first message.
+                    configured or allowlist empty — open Settings → Channels to
+                    wire a channel, or Help → Channels for the 2-minute setup.
                 </Link>
+            )}
+            {mock && (
+                <div
+                    data-testid="mock-data-banner"
+                    className="rounded-xl border border-dashed border-amber-500/50 bg-amber-500/5 p-3 text-sm text-amber-200"
+                >
+                    Sample data below (MOCK badges) — configure one channel in
+                    Settings and these clear automatically. Declared doubles
+                    only; nothing here pretends to be live.
+                </div>
             )}
 
             <div className="flex items-center justify-between">

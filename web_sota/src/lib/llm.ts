@@ -25,6 +25,7 @@ export interface GpuInfo {
 export interface ChatMessage {
     role: "user" | "assistant" | "system";
     content: string;
+    ts?: string;
 }
 
 export const getProviders = async (): Promise<LlmProvider[]> => {

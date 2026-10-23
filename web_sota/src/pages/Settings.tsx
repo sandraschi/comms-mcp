@@ -1,5 +1,6 @@
 import { CheckCircle2, Cpu, RefreshCw, Settings2, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../App";
 import { clearCloudKey, saveCloudKey } from "../lib/llm";
 import { useLlm } from "../store/llm";
@@ -10,6 +11,17 @@ function StatusDot({ ok }: { ok: boolean }) {
     ) : (
         <XCircle className="h-4 w-4 text-zinc-400" />
     );
+}
+
+interface ChannelState {
+    id: string;
+    label: string;
+    configured: boolean;
+    detail: string;
+    allowlist_count: number;
+    setup_env: string;
+    pairing_needed?: boolean;
+    needs_auth?: boolean;
 }
 
 export default function Settings() {
@@ -29,12 +41,24 @@ export default function Settings() {
     const [health, setHealth] = useState<string>("…");
     const [keyDraft, setKeyDraft] = useState<Record<string, string>>({});
     const [note, setNote] = useState<string | null>(null);
+    const [channels, setChannels] = useState<ChannelState[] | null>(null);
+    const [channelsError, setChannelsError] = useState<string | null>(null);
 
     useEffect(() => {
         void detect();
         api.get("/health")
             .then((r) => setHealth(`${r.data.status} · v${r.data.version}`))
             .catch(() => setHealth("unreachable"));
+        api.get("/api/v1/channels")
+            .then((r) => {
+                setChannels(r.data.channels ?? []);
+                setChannelsError(null);
+            })
+            .catch((e: unknown) =>
+                setChannelsError(
+                    e instanceof Error ? e.message : "unreachable",
+                ),
+            );
     }, [detect]);
 
     const saveKey = async (id: string) => {
@@ -78,6 +102,77 @@ export default function Settings() {
                     >
                         <RefreshCw className="h-4 w-4" />
                     </button>
+                </div>
+            </div>
+
+            <div
+                data-testid="channels-section"
+                className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5"
+            >
+                <h2 className="text-sm font-semibold text-zinc-100">
+                    Channels — auth & allowlists
+                </h2>
+                <p className="mt-1 text-sm text-zinc-400">
+                    Secrets live in <span className="font-mono">.env</span> at
+                    the repo root (never in the browser) — see Help → Channels
+                    for exact names. Restart the backend after edits.
+                </p>
+                {channelsError && (
+                    <div className="mt-3 text-sm text-red-300">
+                        Channel status unreachable ({channelsError})
+                    </div>
+                )}
+                <div className="mt-3 space-y-3">
+                    {(channels ?? []).map((c) => (
+                        <div
+                            key={c.id}
+                            data-testid={`channel-card-${c.id}`}
+                            className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4"
+                        >
+                            <div className="flex items-center gap-2 text-sm">
+                                <StatusDot ok={c.configured} />
+                                <span className="font-medium text-zinc-100">
+                                    {c.label}
+                                </span>
+                                <span className="ml-auto text-sm text-zinc-400">
+                                    allowlist: {c.allowlist_count}
+                                </span>
+                            </div>
+                            <div className="mt-1 text-sm text-zinc-300">
+                                {c.detail}
+                            </div>
+                            {c.pairing_needed && (
+                                <div className="mt-1 text-sm text-amber-300">
+                                    Pairing needed — start wa-sidecar and scan
+                                    the QR (GET :11208/qr on the backend host).
+                                </div>
+                            )}
+                            {c.needs_auth && (
+                                <div className="mt-1 text-sm text-amber-300">
+                                    Auth needed — run{" "}
+                                    <span className="font-mono">
+                                        comms_ops(operation=&quot;auth&quot;,
+                                        channel=&quot;teams&quot;)
+                                    </span>{" "}
+                                    in Claude/CLI, then enter the code.
+                                </div>
+                            )}
+                            <div className="mt-1 font-mono text-sm text-zinc-500">
+                                {c.setup_env}
+                            </div>
+                            <Link
+                                to="/help"
+                                className="mt-1 inline-block text-sm text-amber-300 underline"
+                            >
+                                Setup steps
+                            </Link>
+                        </div>
+                    ))}
+                    {channels !== null && channels.length === 0 && (
+                        <div className="text-sm text-zinc-400">
+                            No channel data — is the backend running?
+                        </div>
+                    )}
                 </div>
             </div>
 

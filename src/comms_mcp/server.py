@@ -13,6 +13,7 @@ from collections import deque
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -199,6 +200,146 @@ async def api_status():
     }
 
 
+async def channel_statuses() -> list[dict[str, Any]]:
+    """Per-channel setup state for the Settings Channels section.
+
+    Read-only aggregation over the existing adapters. Never returns tokens,
+    QR payloads, or secrets — only booleans, display names, and counts.
+    Every channel reports even when its adapter throws.
+    """
+    from .adapters import slack, teams, telegram, whatsapp
+    from .adapters.telegram import chat_allowlist as tg_allow
+
+    channels: list[dict[str, Any]] = []
+    try:
+        me = await telegram.get_me()
+        ok = bool(me.get("ok"))
+        channels.append(
+            {
+                "id": "telegram",
+                "label": "Telegram",
+                "configured": ok,
+                "detail": f"@{(me.get('result') or {}).get('username', '?')}"
+                if ok
+                else "COMMS_TELEGRAM_BOT_TOKEN missing or invalid",
+                "allowlist_count": len(tg_allow()),
+                "setup_env": "COMMS_TELEGRAM_BOT_TOKEN + COMMS_TELEGRAM_CHAT_IDS",
+            }
+        )
+    except Exception as exc:
+        channels.append(
+            {
+                "id": "telegram",
+                "label": "Telegram",
+                "configured": False,
+                "detail": f"probe failed: {exc}",
+                "allowlist_count": 0,
+                "setup_env": "COMMS_TELEGRAM_BOT_TOKEN + COMMS_TELEGRAM_CHAT_IDS",
+            }
+        )
+    try:
+        st = await whatsapp.status()
+        connected = bool(st.get("connected"))
+        channels.append(
+            {
+                "id": "whatsapp",
+                "label": "WhatsApp",
+                "configured": bool(st.get("success")) and connected,
+                "detail": (
+                    "sidecar linked — send ready"
+                    if connected
+                    else "sidecar not linked — scan QR via Settings pairing panel"
+                ),
+                "allowlist_count": len(
+                    [n for n in get_settings().whatsapp_allow_numbers.split(",") if n.strip()]
+                ),
+                "sidecar": st.get("sidecar", get_settings().whatsapp_sidecar_url),
+                "pairing_needed": not connected,
+                "setup_env": "COMMS_WHATSAPP_ALLOW_NUMBERS (E.164) + wa-sidecar running",
+            }
+        )
+    except Exception as exc:
+        channels.append(
+            {
+                "id": "whatsapp",
+                "label": "WhatsApp",
+                "configured": False,
+                "detail": f"sidecar unreachable: {exc}",
+                "allowlist_count": 0,
+                "pairing_needed": True,
+                "setup_env": "COMMS_WHATSAPP_ALLOW_NUMBERS (E.164) + wa-sidecar running",
+            }
+        )
+    try:
+        sst = await slack.status()
+        ok = bool(sst.get("success"))
+        team = (sst.get("team") or {}) if isinstance(sst.get("team"), dict) else {}
+        channels.append(
+            {
+                "id": "slack",
+                "label": "Slack",
+                "configured": ok,
+                "detail": f"team {team.get('name', '?')} — bot {sst.get('bot', '?')}"
+                if ok
+                else str(sst.get("error", "COMMS_SLACK_APP_TOKEN/BOT_TOKEN missing")),
+                "allowlist_count": len(slack.allow_channels()),
+                "setup_env": (
+                    "COMMS_SLACK_APP_TOKEN + COMMS_SLACK_BOT_TOKEN + COMMS_SLACK_CHANNEL_IDS"
+                ),
+            }
+        )
+    except Exception as exc:
+        channels.append(
+            {
+                "id": "slack",
+                "label": "Slack",
+                "configured": False,
+                "detail": f"probe failed: {exc}",
+                "allowlist_count": 0,
+                "setup_env": (
+                    "COMMS_SLACK_APP_TOKEN + COMMS_SLACK_BOT_TOKEN + COMMS_SLACK_CHANNEL_IDS"
+                ),
+            }
+        )
+    try:
+        tst = teams.auth_status()
+        authed = bool(tst.get("authorized"))
+        channels.append(
+            {
+                "id": "teams",
+                "label": "Teams",
+                "configured": bool(tst.get("client_configured")) and authed,
+                "detail": (
+                    f"authorized as {tst.get('account', '?')}"
+                    if authed
+                    else "device-code auth required — see Help, Teams tab"
+                ),
+                "allowlist_count": len(teams.allow_list()),
+                "needs_auth": not authed,
+                "setup_env": "COMMS_GRAPH_CLIENT_ID + COMMS_TEAMS_RECIPIENTS",
+            }
+        )
+    except Exception as exc:
+        channels.append(
+            {
+                "id": "teams",
+                "label": "Teams",
+                "configured": False,
+                "detail": f"probe failed: {exc}",
+                "allowlist_count": 0,
+                "needs_auth": True,
+                "setup_env": "COMMS_GRAPH_CLIENT_ID + COMMS_TEAMS_RECIPIENTS",
+            }
+        )
+    return channels
+
+
+@app.get("/api/v1/channels")
+async def api_channels():
+    """Per-channel setup state (Settings Channels section). No secrets."""
+    return {"channels": await channel_statuses()}
+
+
 @app.post("/api/v1/send")
 async def api_send(request: Request):
     from .adapters import telegram
@@ -244,6 +385,7 @@ async def api_capabilities():
             "GET /api/v1/outbox",
             "GET /api/v1/inbound",
             "GET /api/v1/status",
+            "GET /api/v1/channels",
             "POST /api/v1/send",
             "POST /api/v1/inbound/wa",
             "GET /api/capabilities",
