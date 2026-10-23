@@ -57,9 +57,14 @@ async def test_status_proxies_sidecar(monkeypatch):
         respx.get("http://127.0.0.1:11208/health").mock(
             return_value=Response(200, json={"connected": False, "connection": "connecting"})
         )
+        respx.get("http://127.0.0.1:11208/qr").mock(
+            return_value=Response(200, json={"qr": "qr-data", "pairing_code": "123-456"})
+        )
         result = await whatsapp.status()
         assert result["success"] is True
         assert result["connection"] == "connecting"
+        assert result["qr"] == "qr-data"
+        assert "pairing_hint" in result
 
 
 @pytest.mark.asyncio

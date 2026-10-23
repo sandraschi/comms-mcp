@@ -69,3 +69,103 @@ async def test_send_not_authorized(monkeypatch):
 
 def test_auth_status_unconfigured():
     assert teams.auth_status()["success"] is False
+
+
+def test_strip_html_to_text():
+    assert teams._strip_html("<p>Hello <b>world</b></p>") == "Hello world"
+    assert teams._strip_html("plain") == "plain"
+
+
+@pytest.mark.asyncio
+async def test_list_chats_live(monkeypatch):
+    import comms_mcp.adapters.teams as teams_mod
+    import comms_mcp.config as cfg_mod
+
+    monkeypatch.setenv("COMMS_GRAPH_CLIENT_ID", "graph-app-id")
+    teams_mod.get_settings = cfg_mod.get_settings
+    teams_mod._access_token = lambda: "tok"
+
+    import httpx
+
+    async def fake_get(self, url, headers=None):
+        class R:
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return {"value": [{"id": "19:abc", "topic": "Ops", "chatType": "group"}]}
+
+        return R()
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+    result = await teams.list_chats()
+    assert result["success"] is True
+    assert result["chats"][0]["id"] == "19:abc"
+
+
+@pytest.mark.asyncio
+async def test_chat_messages_and_edit_delete(monkeypatch):
+    import comms_mcp.adapters.teams as teams_mod
+    import comms_mcp.config as cfg_mod
+
+    monkeypatch.setenv("COMMS_GRAPH_CLIENT_ID", "graph-app-id")
+    teams_mod.get_settings = cfg_mod.get_settings
+    teams_mod._access_token = lambda: "tok"
+
+    import httpx
+
+    async def fake_get(self, url, headers=None):
+        class R:
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return {
+                    "value": [
+                        {
+                            "id": "m1",
+                            "body": {"content": "<p>hi</p>"},
+                            "from": {"user": {"displayName": "Steve"}},
+                            "createdDateTime": "2026-01-01T00:00:00Z",
+                        }
+                    ]
+                }
+
+        return R()
+
+    async def fake_post(self, url, json=None, headers=None):
+        class R:
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return {"id": "m2"}
+
+        assert "reply" in url or "messages" in url
+        return R()
+
+    async def fake_patch(self, url, json=None, headers=None):
+        class R:
+            def raise_for_status(self):
+                pass
+
+        return R()
+
+    async def fake_delete(self, url, headers=None):
+        class R:
+            def raise_for_status(self):
+                pass
+
+        return R()
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+    monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
+    monkeypatch.setattr(httpx.AsyncClient, "patch", fake_patch)
+    monkeypatch.setattr(httpx.AsyncClient, "delete", fake_delete)
+    hist = await teams.chat_messages("19:abc", limit=5)
+    assert hist["success"] is True
+    assert hist["messages"][0]["text"] == "hi"
+    edited = await teams.edit_message("19:abc", "m1", "fixed")
+    assert edited["success"] is True
+    deleted = await teams.delete_message("19:abc", "m1")
+    assert deleted["success"] is True

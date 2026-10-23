@@ -1,9 +1,14 @@
-"""WhatsApp adapter (v0.2) - proxies to the Node baileys sidecar.
+"""WhatsApp adapter (v0.2) - proxies to the Node baileys sidecar (text only).
 
 The sidecar (wa-sidecar/, Node) links the WhatsApp number as a companion
 device; this module is a thin REST client: status / qr (pairing) / send.
 Send is allowlist-gated (COMMS_WHATSAPP_ALLOW_NUMBERS, E.164). Inbound
 arrives via POST /api/v1/inbound/wa (sidecar -> comms-mcp webhook).
+
+Text-only scope, sidecar-bounded: the sidecar exposes /health, /qr and
+/send only - no chat list, history, or group management. History for
+WhatsApp = the local inbound store. Pairing state is surfaced through
+status() so MCP clients never need the sidecar REST directly.
 """
 
 from __future__ import annotations
@@ -44,7 +49,17 @@ async def status() -> dict[str, Any]:
             r = await client.get(f"{_base()}/health")
             r.raise_for_status()
             data = r.json()
-        return {"success": True, "configured": True, **data}
+        out: dict[str, Any] = {"success": True, "configured": True, **data}
+        if not data.get("connected"):
+            pair = await pairing_info()
+            if pair.get("success"):
+                out["qr"] = pair.get("qr")
+                out["pairing_code"] = pair.get("pairing_code")
+                out["pairing_hint"] = (
+                    "Scan the QR with WhatsApp on the phone (Linked devices), "
+                    "or use the pairing code, then call status again."
+                )
+        return out
     except Exception as exc:
         return {"success": False, "configured": True, "error": str(exc)}
 

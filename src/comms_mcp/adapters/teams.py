@@ -12,6 +12,10 @@ The token needs the delegated Chat.ReadWrite scope. Send is allowlist-gated
 (COMMS_TEAMS_RECIPIENTS: name=email or name=19:chatId). The token store lives
 at COMMS_TEAMS_TOKEN_FILE (default data/teams_oauth.json), not committed.
 
+Read is text-only: list_chats / chat_messages return plain text
+(HTML bodies are stripped, no cards/files). Replies use replyToId.
+Edits/deletes map to PATCH/DELETE on the chat message.
+
 Caveat: Graph Teams chat APIs require an organizational (work/school)
 identity; personal consumer accounts have limited /chats support. Configure a
 target that has a Teams identity for reliable 1:1 chat.
@@ -249,7 +253,7 @@ async def status() -> dict[str, Any]:
         return {"success": False, "configured": True, "error": str(exc)}
 
 
-async def send_message(recipient: str, text: str) -> dict[str, Any]:
+async def send_message(recipient: str, text: str, reply_to: str | None = None) -> dict[str, Any]:
     if not configured():
         return {"success": False, "error": "COMMS_GRAPH_CLIENT_ID not set"}
     allow = allow_list()
@@ -272,14 +276,158 @@ async def send_message(recipient: str, text: str) -> dict[str, Any]:
     payload = {"body": {"contentType": "text", "content": text[:28000]}}
     try:
         async with httpx.AsyncClient(timeout=TIMEOUT_S) as client:
-            r = await client.post(
-                f"{_cfg().teams_graph_base}/chats/{quote(chat_id, safe='')}/messages",
-                json=payload,
-                headers={"Authorization": f"Bearer {token}"},
-            )
+            if reply_to:
+                r = await client.post(
+                    f"{_cfg().teams_graph_base}/chats/{quote(chat_id, safe='')}"
+                    f"/messages/{quote(reply_to, safe='')}/replies",
+                    json=payload,
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+            else:
+                r = await client.post(
+                    f"{_cfg().teams_graph_base}/chats/{quote(chat_id, safe='')}/messages",
+                    json=payload,
+                    headers={"Authorization": f"Bearer {token}"},
+                )
             r.raise_for_status()
             msg = r.json()
         return {"success": True, "chat_id": chat_id, "message_id": msg.get("id")}
+    except httpx.HTTPStatusError as exc:
+        return {
+            "success": False,
+            "error": f"graph {exc.response.status_code}: {exc.response.text[:300]}",
+        }
+    except Exception as exc:
+        return {"success": False, "error": str(exc)}
+
+
+def _strip_html(content: str) -> str:
+    """Graph returns message bodies as HTML - reduce to plain text."""
+    import html as _html
+    import re as _re
+
+    text = _re.sub(r"<[^>]+>", " ", content or "")
+    text = _html.unescape(text)
+    return _re.sub(r"\s+", " ", text).strip()
+
+
+async def list_chats() -> dict[str, Any]:
+    """Live chat list via GET /me/chats (text scope, members expanded)."""
+    if not configured():
+        return {"success": False, "configured": False, "error": "COMMS_GRAPH_CLIENT_ID not set"}
+    token = await asyncio.to_thread(_access_token)
+    if not token:
+        return {
+            "success": False,
+            "configured": True,
+            "needs_auth": True,
+            "error": "not authorized - run comms_ops(operation='auth', channel='teams')",
+        }
+    try:
+        async with httpx.AsyncClient(timeout=TIMEOUT_S) as client:
+            r = await client.get(
+                f"{_cfg().teams_graph_base}/me/chats?$expand=members&$top=50",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            r.raise_for_status()
+            chats = [
+                {
+                    "id": c.get("id"),
+                    "topic": c.get("topic") or c.get("chatType"),
+                    "chatType": c.get("chatType"),
+                }
+                for c in r.json().get("value", [])
+            ]
+        return {"success": True, "chats": chats, "allowlist": allow_list()}
+    except Exception as exc:
+        return {"success": False, "error": str(exc), "allowlist": allow_list()}
+
+
+async def chat_messages(chat_id: str, limit: int = 20) -> dict[str, Any]:
+    """Recent messages via GET /chats/{id}/messages (text only)."""
+    if not configured():
+        return {"success": False, "error": "COMMS_GRAPH_CLIENT_ID not set"}
+    token = await asyncio.to_thread(_access_token)
+    if not token:
+        return {
+            "success": False,
+            "error": "not authorized - run comms_ops(operation='auth', channel='teams')",
+        }
+    try:
+        n = max(1, min(int(limit), 100))
+        async with httpx.AsyncClient(timeout=TIMEOUT_S) as client:
+            r = await client.get(
+                f"{_cfg().teams_graph_base}/chats/{quote(chat_id, safe='')}/messages?$top={n}",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            r.raise_for_status()
+            messages = [
+                {
+                    "id": m.get("id"),
+                    "from": ((m.get("from") or {}).get("user") or {}).get("displayName"),
+                    "text": _strip_html((m.get("body") or {}).get("content", ""))[:2000],
+                    "createdDateTime": m.get("createdDateTime"),
+                }
+                for m in r.json().get("value", [])
+            ]
+        return {"success": True, "chat_id": chat_id, "messages": messages}
+    except httpx.HTTPStatusError as exc:
+        return {
+            "success": False,
+            "error": f"graph {exc.response.status_code}: {exc.response.text[:300]}",
+        }
+    except Exception as exc:
+        return {"success": False, "error": str(exc)}
+
+
+async def edit_message(chat_id: str, message_id: str, text: str) -> dict[str, Any]:
+    """Edit a chat message (PATCH body, text only)."""
+    if not configured():
+        return {"success": False, "error": "COMMS_GRAPH_CLIENT_ID not set"}
+    token = await asyncio.to_thread(_access_token)
+    if not token:
+        return {
+            "success": False,
+            "error": "not authorized - run comms_ops(operation='auth', channel='teams')",
+        }
+    try:
+        async with httpx.AsyncClient(timeout=TIMEOUT_S) as client:
+            r = await client.patch(
+                f"{_cfg().teams_graph_base}/chats/{quote(chat_id, safe='')}"
+                f"/messages/{quote(message_id, safe='')}",
+                json={"body": {"contentType": "text", "content": text[:28000]}},
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            r.raise_for_status()
+            return {"success": True, "chat_id": chat_id, "message_id": message_id}
+    except httpx.HTTPStatusError as exc:
+        return {
+            "success": False,
+            "error": f"graph {exc.response.status_code}: {exc.response.text[:300]}",
+        }
+    except Exception as exc:
+        return {"success": False, "error": str(exc)}
+
+
+async def delete_message(chat_id: str, message_id: str) -> dict[str, Any]:
+    """Soft-delete a chat message (DELETE)."""
+    if not configured():
+        return {"success": False, "error": "COMMS_GRAPH_CLIENT_ID not set"}
+    token = await asyncio.to_thread(_access_token)
+    if not token:
+        return {
+            "success": False,
+            "error": "not authorized - run comms_ops(operation='auth', channel='teams')",
+        }
+    try:
+        async with httpx.AsyncClient(timeout=TIMEOUT_S) as client:
+            r = await client.delete(
+                f"{_cfg().teams_graph_base}/chats/{quote(chat_id, safe='')}"
+                f"/messages/{quote(message_id, safe='')}",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            r.raise_for_status()
+            return {"success": True, "chat_id": chat_id, "message_id": message_id}
     except httpx.HTTPStatusError as exc:
         return {
             "success": False,
