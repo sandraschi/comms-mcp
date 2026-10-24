@@ -5,7 +5,7 @@ comms-mcp on this PC. Follow these steps in order. Do not improvise outside them
 Windows 10/11 only for now.
 
 comms-mcp is one MCP tool that sends and reads messages on Telegram, WhatsApp,
-Slack and Teams, with a local web console on port 11205. It runs as an MCP server
+Slack, Teams, and Signal, with a local web console on port 11205. It runs as an MCP server
 (stdio for Claude Desktop / Cursor) and, optionally, an HTTP daemon.
 
 ## 1. Ground rules
@@ -13,8 +13,10 @@ Slack and Teams, with a local web console on port 11205. It runs as an MCP serve
 - Tell the user in plain words what you are about to do before each step.
 - Allowed without asking: cloning this repo, running `start.bat` with the flags
   below, which may install **uv** (`astral-sh.uv`) via winget.
-- **Ask the user first** before installing a WhatsApp sidecar, before entering any
-  channel token, and before changing any MCP client config.
+- **Ask the user first** before installing a WhatsApp sidecar or Signal bridge,
+  before entering any channel token, and before changing any MCP client config.
+  Signal additionally requires a DEDICATED number — never offer the user's
+  personal primary.
 - Do not run anything elevated, do not change system settings, do not disable
   security features. Do not expose the server beyond `127.0.0.1`.
 - Never kill a process you did not start. If port 11205 is held by another program,
@@ -69,6 +71,7 @@ until the user configures one. That is expected on a fresh install.
 | User wants the console | It is served on `http://127.0.0.1:11205/` once `web_sota/dist` exists; if `console` is `info`, ask before running `bun run build` in `web_sota` |
 | User only wants their AI app to send messages | stdio connect is enough (step 7a) |
 | WhatsApp requested | Explain the sidecar + QR pairing (docs/ONBOARDING.md); ask before starting it |
+| Signal requested | Explain the Docker bridge + dedicated-number rule (docs/ONBOARDING.md); ask before starting it; never the personal primary |
 | Teams requested | Explain the device-code flow; reuse the fleet email-mcp Azure app id if present |
 
 ## 5. Install

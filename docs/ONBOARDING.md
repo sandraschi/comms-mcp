@@ -1,15 +1,17 @@
 # Onboarding — comms-mcp
 
 comms-mcp is a unified fleet messaging gateway: one `comms_ops` tool sends and
-reads Telegram, WhatsApp, Slack, and Teams. Set up any channel in ~2 minutes;
-each is independent — do them in any order.
+reads Telegram, WhatsApp, Slack, Teams, and Signal. Set up any channel in
+~2 minutes; each is independent — do them in any order.
 
 ## What it costs
 
 Nothing. Telegram Bot API is free. WhatsApp uses your own phone number as a
 linked companion device (self-hosted baileys sidecar, no per-message fees).
 Slack needs a free Slack workspace + app. Teams reuses an Azure app registration
-(free tier); the Graph delegated flow costs nothing. No cloud LLM, no paid API.
+(free tier); the Graph delegated flow costs nothing. Signal needs a DEDICATED
+number (never your personal primary) plus Docker for the community bridge;
+no per-message fees. No cloud LLM, no paid API.
 
 ## Channel setup
 
@@ -63,6 +65,20 @@ accounts have limited `/chats` support.
    microsoft.com/devicelogin URL, enter the code, call `auth` again to confirm.
 4. Verify: `comms_ops(operation="status", channel="teams")`.
 
+### 5. Signal (5 min, DEDICATED number + Docker)
+
+Signal has no bot API — this lane wraps the community bridge, so run it on a
+number you can afford to lose. NEVER your personal primary.
+
+1. Docker Desktop running. Settings → Channels → Signal → **Start bridge**
+   (pulls the image on first run; watch the phase line).
+2. Link as secondary device: **Show link QR**, scan with the phone
+   (Signal → Settings → Linked devices). …or register the dedicated number:
+   enter it, Send code (SMS/voice), enter the token, Verify.
+3. `.env` (or Save in the card): `COMMS_SIGNAL_NUMBER=+1555...` (the linked
+   number), `COMMS_SIGNAL_RECIPIENTS=+43699...,+...` (E.164 allowlist).
+4. Verify: `comms_ops(operation="status", channel="signal")` → linked.
+
 ## Pitfalls
 
 - **Send blocked**: the chat/number/channel is not in the allowlist env for that
@@ -74,6 +90,10 @@ accounts have limited `/chats` support.
 - **Slack "not in channel"**: invite the bot user into the channel first.
 - **Teams "could not resolve a chat"**: consumer identity or unknown email —
   use a work/school account and an exact email/UPN.
+- **Signal bridge "failed"**: Docker not running or pull blocked — start Docker
+  Desktop and Start bridge again; the phase line shows pull/boot progress.
+- **Signal "not linked"**: number never linked/registered — Show link QR and
+  scan, or register + verify. Linking expires; re-scan if stale.
 - **Two backends, two databases**: the NSSM service and an interactive
   `just serve` each own their store unless `COMMS_DB_PATH` is absolute and
   shared. The installer pins it; interactive runs default to `data/comms.db`

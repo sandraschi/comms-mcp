@@ -10,7 +10,7 @@ src/comms_mcp/
   registry.py        the single FastMCP("comms-mcp") instance
   config.py          pydantic-settings, env prefix COMMS_
   sanitize.py        inbound sanitization (zero-width/control strip + injection wrap)
-  adapters/          telegram.py whatsapp.py slack.py teams.py (one module/channel)
+  adapters/          telegram.py whatsapp.py signal.py slack.py teams.py (one module/channel)
   outbox/sqlite.py   outbox (pending/sent/failed) + inbound (7-day TTL), WAL
   mcp/tools/         comms.py (comms_ops portmanteau) admin.py (comms_shutdown)
 skills/comms/SKILL.md  agent-facing domain skill (also served via GET /api/skills)

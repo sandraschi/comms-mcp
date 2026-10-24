@@ -1,13 +1,13 @@
 # Tools
 
-## comms_ops — unified comms portmanteau (v0.6.0, text only)
+## comms_ops — unified comms portmanteau (v0.7.0, text only)
 
 | operation | channels | Description |
 |---|---|---|
 | `send` | all | Send text; Telegram `thread_ts`=reply_to + `parse_mode`=HTML; Slack/Teams `thread_ts`=thread reply |
-| `read_recent` | all | Telegram polls getUpdates (offset-persisted); Slack/Teams live history when `chat_id` given, else stored inbound |
-| `list_threads` | all | Telegram: allowlist enriched with chat titles; Slack: live channels; Teams: live chats; WhatsApp: allowlist |
-| `status` | all | Bot identity + pairing state (WhatsApp QR when disconnected) |
+| `read_recent` | all | Telegram polls getUpdates (offset-persisted); Signal polls receive; Slack/Teams live history when `chat_id` given, else stored inbound |
+| `list_threads` | all | Telegram: allowlist enriched with chat titles; Slack: live channels; Teams: live chats; WhatsApp/Signal: allowlist |
+| `status` | all | Bot identity + pairing state (WhatsApp QR when disconnected; Signal link state) |
 | `auth` | teams | Teams OAuth device-code flow |
 | `history` | slack/teams | Live channel/chat history, `limit` 1-100 |
 | `search` | slack | Live `search.messages` |
@@ -18,8 +18,8 @@
 
 ## Parameters
 
-- `channel` — literal `telegram` / `whatsapp` / `slack` / `teams`
-- `chat_id` — recipient chat id (send/history) / channel id (slack history/react/edit/delete) / E.164 (whatsapp)
+- `channel` — literal `telegram` / `whatsapp` / `slack` / `teams` / `signal`
+- `chat_id` — recipient chat id (send/history) / channel id (slack history/react/edit/delete) / E.164 (whatsapp/signal)
 - `text` — message body (send/edit)
 - `limit` — max messages (history/search/read_recent, default 20)
 - `thread_ts` — reply target / message id: Slack ts, Telegram message_id, Teams message id
@@ -65,3 +65,9 @@
 - Auth: `comms_ops(operation="auth", channel="teams")` -> enter the code at microsoft.com/devicelogin -> call auth again to confirm
 - Allowlist format: `steve=stephanschipal@hotmail.com` (email) or `channel=19:xxxx` (existing chat id); send resolves the target to a Teams chat and posts /chats/{id}/messages
 - Note: Graph chat APIs need an organizational (work/school) identity; consumer accounts have limited /chats support
+
+## Signal (v0.7 Docker bridge - text only, unofficial, dedicated number!)
+- `comms_ops` `channel="signal"`: send (E.164, allowlist COMMS_SIGNAL_RECIPIENTS), status (link state), read_recent (polls receive), list_threads (allowlist)
+- No history op (bridge has no server-side history); edit/delete/search/react unsupported
+- Pair once: Settings → Channels → Signal → Start bridge (Docker, auto-pulls), Show link QR (scan with phone) or register dedicated number by SMS/voice + verify
+- Limits: community bridge (bbernhard/signal-cli-rest-api) — upstream Signal changes can break it; never automate a personal primary number

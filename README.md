@@ -1,14 +1,15 @@
 # comms-mcp
 
-One MCP tool that sends and reads messages on Telegram, WhatsApp, Slack and
-Microsoft Teams, with a local web console and a per-channel allowlist.
+One MCP tool that sends and reads messages on Telegram, WhatsApp, Slack,
+Microsoft Teams, and Signal, with a local web console and a per-channel allowlist.
 
 ![python](https://img.shields.io/badge/python-3.11%2B-blue) ![fastmcp](https://img.shields.io/badge/fastmcp-3.4-green) ![ruff](https://img.shields.io/badge/ruff-clean-green) ![pytest](https://img.shields.io/badge/pytest-31%20passing-green) ![platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue) ![license](https://img.shields.io/badge/license-MIT-green)
 
 ## What You Can Do
 
-- **Send on any of four channels** from one tool: Telegram, WhatsApp (baileys
-  sidecar), Slack (Socket Mode), Teams (Graph device flow). `comms_ops(operation=...)`.
+- **Send on any of five channels** from one tool: Telegram, WhatsApp (baileys
+  sidecar), Slack (Socket Mode), Teams (Graph device flow), Signal (Docker
+  bridge, dedicated number). `comms_ops(operation=...)`.
 - **Read inbound** messages; bodies are sanitized and auto-expire after 7 days.
 - **See every attempt**: a local outbox records sent / failed and the platform's reason.
 - **Use the console** on `http://127.0.0.1:11205/` - dashboard, inbox, outbox,
@@ -55,6 +56,7 @@ server and connects it to your AI app.
 | 11205 | Backend (FastAPI REST + FastMCP `/mcp`; serves the console) |
 | 11204 | Console dev server (Vite, optional) |
 | 11208 | WhatsApp baileys sidecar |
+| 18080 | Signal bridge (Docker) |
 
 ## Security Model
 
@@ -87,7 +89,8 @@ Teams reuses the same Azure app registration as the fleet **email-mcp**
 ## Requirements
 
 Windows 10/11. `start.bat` installs **uv** for you; nothing else is global. A
-channel account (Telegram bot / WhatsApp phone / Slack workspace / Teams identity)
+channel account (Telegram bot / WhatsApp phone / Slack workspace / Teams identity
+/ Signal dedicated number)
 is required per channel. The console needs no extra runtime once built.
 
 ## License
