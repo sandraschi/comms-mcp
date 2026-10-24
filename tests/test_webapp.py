@@ -114,6 +114,60 @@ class _JsonRequest:
         return self._body
 
 
+def _reset_sidecar():
+    whatsapp._set_phase("idle", "")
+    whatsapp._sidecar_proc = None
+
+
+def test_sidecar_port_parsing(monkeypatch):
+    monkeypatch.delenv("COMMS_WHATSAPP_SIDECAR_URL", raising=False)
+    assert whatsapp.sidecar_port() == 11208
+    monkeypatch.setenv("COMMS_WHATSAPP_SIDECAR_URL", "http://127.0.0.1:19999")
+    assert whatsapp.sidecar_port() == 19999
+
+
+def test_sidecar_start_short_circuits_when_listening(monkeypatch):
+    _reset_sidecar()
+    monkeypatch.setattr(whatsapp, "_probe_running", lambda: True)
+    result = whatsapp.start_sidecar()
+    assert result["phase"] == "running"
+    _reset_sidecar()
+
+
+def test_sidecar_start_fails_cleanly_without_node(monkeypatch):
+    import types
+
+    _reset_sidecar()
+    monkeypatch.setattr(whatsapp, "_probe_running", lambda: False)
+    monkeypatch.setattr(whatsapp, "shutil", types.SimpleNamespace(which=lambda _: None))
+    # run synchronously to avoid thread races in test
+    whatsapp._run_sidecar()
+    state = whatsapp.sidecar_state()
+    assert state["phase"] == "failed"
+    assert "node" in state["detail"].lower()
+    _reset_sidecar()
+
+
+def test_sidecar_stop_idle_is_noop():
+    _reset_sidecar()
+    result = whatsapp.stop_sidecar()
+    assert result == {"stopped": False, "phase": "idle"}
+
+
+@pytest.mark.asyncio
+async def test_sidecar_route_rejects_bad_action():
+    result = await server.api_whatsapp_sidecar(_JsonRequest({"action": "dance"}))
+    assert result.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_sidecar_route_start_delegates(monkeypatch):
+    monkeypatch.setattr(whatsapp, "start_sidecar", lambda: {"started": False, "phase": "running"})
+    result = await server.api_whatsapp_sidecar(_JsonRequest({"action": "start"}))
+    assert result["success"] is True
+    assert result["phase"] == "running"
+
+
 @pytest.mark.asyncio
 async def test_teams_auth_reset_needs_no_network():
     result = await server.api_teams_auth(_JsonRequest({"action": "reset"}))

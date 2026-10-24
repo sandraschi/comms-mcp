@@ -23,6 +23,7 @@ interface ChannelState {
     keys: string[];
     pairing_needed?: boolean;
     needs_auth?: boolean;
+    sidecar_state?: { phase: string; detail: string; pid?: number | null };
 }
 
 const isSecretKey = (key: string) => /TOKEN|SECRET/.test(key);
@@ -54,6 +55,42 @@ export default function Settings() {
     const [teamsBusy, setTeamsBusy] = useState(false);
     const [pairing, setPairing] = useState<Record<string, string> | null>(null);
     const [pairingBusy, setPairingBusy] = useState(false);
+    const [sidecarBusy, setSidecarBusy] = useState(false);
+    const [watching, setWatching] = useState(false);
+
+    useEffect(() => {
+        if (!watching) return;
+        const id = setInterval(() => void reloadChannels(), 3000);
+        return () => clearInterval(id);
+    }, [watching]);
+
+    useEffect(() => {
+        if (!watching) return;
+        const wa = channels?.find((c) => c.id === "whatsapp");
+        const phase = wa?.sidecar_state?.phase;
+        if (phase === "running" || phase === "failed" || phase === "idle") {
+            setWatching(false);
+            setSidecarBusy(false);
+        }
+    }, [channels, watching]);
+
+    const sidecarAction = async (action: "start" | "stop") => {
+        setSidecarBusy(true);
+        try {
+            await api.post("/api/v1/whatsapp/sidecar", { action });
+            if (action === "start") {
+                setWatching(true);
+            } else {
+                setWatching(false);
+                setSidecarBusy(false);
+            }
+            await reloadChannels();
+        } catch {
+            setNote(`Sidecar ${action} failed — is the backend reachable?`);
+            setSidecarBusy(false);
+            setWatching(false);
+        }
+    };
 
     useEffect(() => {
         void detect();
@@ -356,6 +393,60 @@ export default function Settings() {
                                             {teamsAuth.error}
                                         </span>
                                     )}
+                                </div>
+                            )}
+                            {c.id === "whatsapp" && (
+                                <div className="mt-3 space-y-2">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                void sidecarAction("start")
+                                            }
+                                            disabled={
+                                                sidecarBusy ||
+                                                c.sidecar_state?.phase ===
+                                                    "installing" ||
+                                                c.sidecar_state?.phase ===
+                                                    "starting"
+                                            }
+                                            data-testid="wa-sidecar-start"
+                                            className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-medium text-zinc-950 disabled:opacity-40"
+                                        >
+                                            Start sidecar
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                void sidecarAction("stop")
+                                            }
+                                            disabled={
+                                                sidecarBusy ||
+                                                (!c.sidecar_state &&
+                                                    !c.configured)
+                                            }
+                                            data-testid="wa-sidecar-stop"
+                                            className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-100 hover:border-amber-500/50 disabled:opacity-40"
+                                        >
+                                            Stop
+                                        </button>
+                                        {c.sidecar_state && (
+                                            <span
+                                                data-testid="wa-sidecar-phase"
+                                                className="text-sm text-zinc-300"
+                                            >
+                                                sidecar: {c.sidecar_state.phase}
+                                                {c.sidecar_state.detail
+                                                    ? ` — ${c.sidecar_state.detail}`
+                                                    : ""}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="text-sm text-zinc-400">
+                                        No terminal needed: first run installs
+                                        dependencies automatically, then boots
+                                        baileys. Auth persists in data/wa-auth/.
+                                    </div>
                                 </div>
                             )}
                             {c.id === "whatsapp" && c.pairing_needed && (

@@ -257,6 +257,7 @@ async def channel_statuses() -> list[dict[str, Any]]:
                 "sidecar": st.get("sidecar", get_settings().whatsapp_sidecar_url),
                 "pairing_needed": not connected,
                 "setup_env": "COMMS_WHATSAPP_ALLOW_NUMBERS (E.164) + wa-sidecar running",
+                "sidecar_state": whatsapp.sidecar_state(),
                 "keys": ["COMMS_WHATSAPP_ALLOW_NUMBERS", "COMMS_WHATSAPP_SIDECAR_URL"],
             }
         )
@@ -519,6 +520,32 @@ async def api_whatsapp_qr():
     }
 
 
+@app.post("/api/v1/whatsapp/sidecar")
+async def api_whatsapp_sidecar(request: Request):
+    """Start/stop the baileys sidecar — nobody hand-starts node anymore.
+
+    Body: {"action": "start"|"stop"}. start is async: returns immediately,
+    poll sidecar_state via GET /api/v1/channels (phase installing/starting/
+    running/failed). First run does npm install (may take minutes).
+    """
+    from .adapters import whatsapp
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"success": False, "error": "invalid JSON"}, status_code=400)
+    action = str(body.get("action", "")).strip().lower()
+    import asyncio as _asyncio
+
+    if action == "start":
+        result = await _asyncio.to_thread(whatsapp.start_sidecar)
+        return {"success": True, **result}
+    if action == "stop":
+        result = await _asyncio.to_thread(whatsapp.stop_sidecar)
+        return {"success": True, **result}
+    return JSONResponse({"success": False, "error": "action must be start|stop"}, status_code=400)
+
+
 @app.post("/api/v1/send")
 async def api_send(request: Request):
     from .adapters import telegram
@@ -568,6 +595,7 @@ async def api_capabilities():
             "POST /api/v1/config",
             "POST /api/v1/teams/auth",
             "GET /api/v1/whatsapp/qr",
+            "POST /api/v1/whatsapp/sidecar",
             "POST /api/v1/send",
             "POST /api/v1/inbound/wa",
             "GET /api/capabilities",

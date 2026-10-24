@@ -21,7 +21,7 @@ const CHANNELS = [
         title: "Telegram",
         steps: [
             "Create a bot with @BotFather and copy the token.",
-            "Set COMMS_TELEGRAM_BOT_TOKEN and COMMS_TELEGRAM_CHAT_IDS (comma-separated chat ids) in .env, repo root.",
+            "Set COMMS_TELEGRAM_BOT_TOKEN and COMMS_TELEGRAM_CHAT_IDS in Settings → Channels (or .env, repo root).",
             "Start the backend: uv run python -m comms_mcp (daemon on :11205).",
             'Message the bot once, then run comms_ops(operation="read_recent") — the chat id appears there; add it to the allowlist.',
             'comms_ops(operation="status", channel="telegram") shows the bot + allowlist + stats.',
@@ -32,11 +32,9 @@ const CHANNELS = [
         id: "whatsapp",
         title: "WhatsApp (baileys sidecar)",
         steps: [
-            "Start the sidecar: node wa-sidecar (listens on :11208).",
-            "Open Settings → Channels → WhatsApp card: the pairing QR/code shows while disconnected.",
-            "Scan the QR with the phone (Linked devices), or use the pairing code.",
-            "Set COMMS_WHATSAPP_ALLOW_NUMBERS (comma-separated E.164, e.g. +436991234567).",
-            "History = local inbound store — the sidecar exposes no chat list API.",
+            "Settings → Channels → WhatsApp → Start sidecar (installs dependencies on first run, no terminal needed).",
+            "While it boots: set COMMS_WHATSAPP_ALLOW_NUMBERS below, or paste it in the card and Save.",
+            "When running: Show pairing code, then WhatsApp → Linked devices → Link with phone number.",
         ],
     },
     {
