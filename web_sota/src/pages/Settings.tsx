@@ -20,9 +20,12 @@ interface ChannelState {
     detail: string;
     allowlist_count: number;
     setup_env: string;
+    keys: string[];
     pairing_needed?: boolean;
     needs_auth?: boolean;
 }
+
+const isSecretKey = (key: string) => /TOKEN|SECRET/.test(key);
 
 export default function Settings() {
     const {
@@ -43,6 +46,14 @@ export default function Settings() {
     const [note, setNote] = useState<string | null>(null);
     const [channels, setChannels] = useState<ChannelState[] | null>(null);
     const [channelsError, setChannelsError] = useState<string | null>(null);
+    const [drafts, setDrafts] = useState<Record<string, string>>({});
+    const [saving, setSaving] = useState<string | null>(null);
+    const [teamsAuth, setTeamsAuth] = useState<Record<string, string> | null>(
+        null,
+    );
+    const [teamsBusy, setTeamsBusy] = useState(false);
+    const [pairing, setPairing] = useState<Record<string, string> | null>(null);
+    const [pairingBusy, setPairingBusy] = useState(false);
 
     useEffect(() => {
         void detect();
@@ -60,6 +71,74 @@ export default function Settings() {
                 ),
             );
     }, [detect]);
+
+    const reloadChannels = async () => {
+        try {
+            const r = await api.get("/api/v1/channels");
+            setChannels(r.data.channels ?? []);
+            setChannelsError(null);
+        } catch (e: unknown) {
+            setChannelsError(e instanceof Error ? e.message : "unreachable");
+        }
+    };
+
+    const saveChannel = async (c: ChannelState) => {
+        const values: Record<string, string> = {};
+        for (const k of c.keys) {
+            const v = (drafts[k] ?? "").trim();
+            if (v) values[k] = v;
+        }
+        if (Object.keys(values).length === 0) {
+            setNote(`Nothing to save for ${c.label} — fill a field first`);
+            return;
+        }
+        setSaving(c.id);
+        try {
+            const r = await api.post("/api/v1/config", { values });
+            setNote(
+                `Saved ${c.label}: ${(r.data.applied ?? []).join(", ")} (live, no restart)`,
+            );
+            setDrafts((d) => {
+                const next = { ...d };
+                for (const k of c.keys) delete next[k];
+                return next;
+            });
+            await reloadChannels();
+        } catch (e: unknown) {
+            const msg =
+                (
+                    e as {
+                        response?: { data?: { error?: string } };
+                    }
+                ).response?.data?.error ??
+                (e instanceof Error ? e.message : "save failed");
+            setNote(`Save failed (${c.label}): ${msg}`);
+        }
+        setSaving(null);
+    };
+
+    const teamsAuthAction = async (action: string) => {
+        setTeamsBusy(true);
+        try {
+            const r = await api.post("/api/v1/teams/auth", { action });
+            setTeamsAuth(r.data);
+            await reloadChannels();
+        } catch {
+            setTeamsAuth({ success: "false", error: "request failed" });
+        }
+        setTeamsBusy(false);
+    };
+
+    const showPairing = async () => {
+        setPairingBusy(true);
+        try {
+            const r = await api.get("/api/v1/whatsapp/qr");
+            setPairing(r.data);
+        } catch {
+            setPairing({ success: "false", error: "sidecar unreachable" });
+        }
+        setPairingBusy(false);
+    };
 
     const saveKey = async (id: string) => {
         const value = keyDraft[id]?.trim();
@@ -113,9 +192,10 @@ export default function Settings() {
                     Channels — auth & allowlists
                 </h2>
                 <p className="mt-1 text-sm text-zinc-400">
-                    Secrets live in <span className="font-mono">.env</span> at
-                    the repo root (never in the browser) — see Help → Channels
-                    for exact names. Restart the backend after edits.
+                    Paste credentials below — they save to the repo-root{" "}
+                    <span className="font-mono">.env</span> and apply live, no
+                    restart, no hand-editing. Values are write-only: the UI
+                    never reads them back. Full narrative: Help → Channels.
                 </p>
                 {channelsError && (
                     <div className="mt-3 text-sm text-red-300">
@@ -149,17 +229,157 @@ export default function Settings() {
                             )}
                             {c.needs_auth && (
                                 <div className="mt-1 text-sm text-amber-300">
-                                    Auth needed — run{" "}
-                                    <span className="font-mono">
-                                        comms_ops(operation=&quot;auth&quot;,
-                                        channel=&quot;teams&quot;)
-                                    </span>{" "}
-                                    in Claude/CLI, then enter the code.
+                                    Auth needed — Get code below, enter it at
+                                    Microsoft, then Confirm.
                                 </div>
                             )}
                             <div className="mt-1 font-mono text-sm text-zinc-500">
                                 {c.setup_env}
                             </div>
+                            {(c.keys ?? []).length > 0 && (
+                                <div className="mt-3 space-y-2">
+                                    {(c.keys ?? []).map((k) => (
+                                        <div
+                                            key={k}
+                                            className="flex flex-wrap items-center gap-2"
+                                        >
+                                            <label
+                                                htmlFor={`cfg-${k}`}
+                                                className="w-64 shrink-0 font-mono text-sm text-zinc-400"
+                                            >
+                                                {k}
+                                            </label>
+                                            <input
+                                                id={`cfg-${k}`}
+                                                type={
+                                                    isSecretKey(k)
+                                                        ? "password"
+                                                        : "text"
+                                                }
+                                                value={drafts[k] ?? ""}
+                                                onChange={(e) =>
+                                                    setDrafts((d) => ({
+                                                        ...d,
+                                                        [k]: e.target.value,
+                                                    }))
+                                                }
+                                                placeholder={
+                                                    isSecretKey(k)
+                                                        ? "paste to set (never shown back)"
+                                                        : "value (empty = leave unchanged)"
+                                                }
+                                                autoComplete="off"
+                                                data-testid={`channel-key-${k}`}
+                                                className="min-w-64 flex-1 rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-sm text-zinc-100"
+                                            />
+                                        </div>
+                                    ))}
+                                    <button
+                                        type="button"
+                                        onClick={() => void saveChannel(c)}
+                                        disabled={saving === c.id}
+                                        data-testid={`channel-save-${c.id}`}
+                                        className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-medium text-zinc-950 disabled:opacity-40"
+                                    >
+                                        {saving === c.id
+                                            ? "Saving…"
+                                            : `Save ${c.label} (live, no restart)`}
+                                    </button>
+                                </div>
+                            )}
+                            {c.id === "teams" && (
+                                <div className="mt-3 flex flex-wrap items-center gap-2">
+                                    {(["start", "poll", "reset"] as const).map(
+                                        (a) => (
+                                            <button
+                                                key={a}
+                                                type="button"
+                                                onClick={() =>
+                                                    void teamsAuthAction(a)
+                                                }
+                                                disabled={teamsBusy}
+                                                data-testid={`teams-auth-${a}`}
+                                                className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-100 hover:border-amber-500/50 disabled:opacity-40"
+                                            >
+                                                {a === "start"
+                                                    ? "Get code"
+                                                    : a === "poll"
+                                                      ? "Confirm"
+                                                      : "Reset"}
+                                            </button>
+                                        ),
+                                    )}
+                                    {teamsAuth?.user_code && (
+                                        <span className="text-sm text-zinc-100">
+                                            Code:{" "}
+                                            <span className="font-mono text-lg font-bold text-amber-300">
+                                                {teamsAuth.user_code}
+                                            </span>{" "}
+                                            at{" "}
+                                            <a
+                                                href={
+                                                    teamsAuth.verification_uri ??
+                                                    "https://microsoft.com/devicelogin"
+                                                }
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="underline"
+                                            >
+                                                {teamsAuth.verification_uri ??
+                                                    "microsoft.com/devicelogin"}
+                                            </a>{" "}
+                                            — then Confirm.
+                                        </span>
+                                    )}
+                                    {teamsAuth?.status === "pending" && (
+                                        <span className="text-sm text-zinc-300">
+                                            Waiting for you — enter the code,
+                                            then Confirm.
+                                        </span>
+                                    )}
+                                    {teamsAuth?.status === "authorized" && (
+                                        <span className="text-sm text-green-300">
+                                            Authorized as{" "}
+                                            {teamsAuth.account ?? "unknown"}.
+                                        </span>
+                                    )}
+                                    {teamsAuth?.error && (
+                                        <span className="text-sm text-red-300">
+                                            {teamsAuth.error}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+                            {c.id === "whatsapp" && c.pairing_needed && (
+                                <div className="mt-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => void showPairing()}
+                                        disabled={pairingBusy}
+                                        data-testid="wa-pairing-show"
+                                        className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-100 hover:border-amber-500/50 disabled:opacity-40"
+                                    >
+                                        {pairingBusy
+                                            ? "Loading…"
+                                            : "Show pairing code"}
+                                    </button>
+                                    {pairing?.pairing_code && (
+                                        <span className="ml-3 font-mono text-lg font-bold text-amber-300">
+                                            {pairing.pairing_code}
+                                        </span>
+                                    )}
+                                    {pairing?.error && (
+                                        <span className="ml-3 text-sm text-red-300">
+                                            {pairing.error}
+                                        </span>
+                                    )}
+                                    <div className="mt-1 text-sm text-zinc-400">
+                                        WhatsApp → Linked devices → Link with
+                                        phone number, type the code. QR image:
+                                        backend :11208/qr.
+                                    </div>
+                                </div>
+                            )}
                             <Link
                                 to="/help"
                                 className="mt-1 inline-block text-sm text-amber-300 underline"

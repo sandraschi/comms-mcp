@@ -1,8 +1,13 @@
-"""Backend channel-status aggregation tests (Settings Channels section).
+"""Backend channel-status + config-write tests (Settings Channels section).
 
 channel_statuses() must report all four channels even when adapters throw,
-and must never leak tokens or QR payloads.
+and must never leak tokens or QR payloads. apply_config() validates,
+persists to .env, and applies live — rejecting anything outside the
+allowlist.
 """
+
+import json
+import os
 
 import pytest
 
@@ -60,3 +65,76 @@ async def test_channels_no_secrets_leak(monkeypatch):
     assert "123-456" not in blob
     wa = next(c for c in channels if c["id"] == "whatsapp")
     assert wa["pairing_needed"] is True
+
+
+def _use_tmp_env(tmp_path, monkeypatch):
+    env_file = tmp_path / ".env"
+    monkeypatch.setattr(server, "_ENV_FILE_OVERRIDE", env_file)
+    return env_file
+
+
+def test_apply_config_rejects_unknown_key(tmp_path, monkeypatch):
+    _use_tmp_env(tmp_path, monkeypatch)
+    with pytest.raises(ValueError, match="not writable"):
+        server.apply_config({"COMMS_EVIL": "1"})
+
+
+def test_apply_config_validates_retention(tmp_path, monkeypatch):
+    _use_tmp_env(tmp_path, monkeypatch)
+    with pytest.raises(ValueError, match=">= 1"):
+        server.apply_config({"COMMS_RETENTION_DAYS": "0"})
+    with pytest.raises(ValueError, match="integer"):
+        server.apply_config({"COMMS_RETENTION_DAYS": "abc"})
+
+
+def test_apply_config_round_trips_env_file_and_process(tmp_path, monkeypatch):
+    env_file = _use_tmp_env(tmp_path, monkeypatch)
+    env_file.write_text("# comment\nCOMMS_TELEGRAM_BOT_TOKEN=old\nUNRELATED=keep\n")
+    try:
+        result = server.apply_config(
+            {"COMMS_TELEGRAM_BOT_TOKEN": "new-token", "COMMS_RETENTION_DAYS": "30"}
+        )
+        assert result == {"applied": ["COMMS_RETENTION_DAYS", "COMMS_TELEGRAM_BOT_TOKEN"]}
+        text = env_file.read_text(encoding="utf-8")
+        assert "# comment" in text
+        assert "UNRELATED=keep" in text
+        assert "COMMS_TELEGRAM_BOT_TOKEN=new-token" in text
+        assert "COMMS_RETENTION_DAYS=30" in text
+        assert os.environ.get("COMMS_TELEGRAM_BOT_TOKEN") == "new-token"
+    finally:
+        os.environ.pop("COMMS_TELEGRAM_BOT_TOKEN", None)
+        os.environ.pop("COMMS_RETENTION_DAYS", None)
+
+
+class _JsonRequest:
+    def __init__(self, body):
+        self._body = body
+
+    async def json(self):
+        return self._body
+
+
+@pytest.mark.asyncio
+async def test_teams_auth_reset_needs_no_network():
+    result = await server.api_teams_auth(_JsonRequest({"action": "reset"}))
+    assert result["success"] is True
+    assert result["status"] == "reset"
+
+
+@pytest.mark.asyncio
+async def test_teams_auth_rejects_bad_action():
+    result = await server.api_teams_auth(_JsonRequest({"action": "dance"}))
+    assert result.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_whatsapp_qr_never_returns_raw_qr(monkeypatch):
+    async def fake_pairing():
+        return {"success": True, "qr": "SECRET-QR", "pairing_code": "111-222"}
+
+    monkeypatch.setattr(whatsapp, "pairing_info", fake_pairing)
+    result = await server.api_whatsapp_qr()
+    blob = json.dumps(result)
+    assert "SECRET-QR" not in blob
+    assert result["pairing_code"] == "111-222"
+    assert result["qr_present"] is True

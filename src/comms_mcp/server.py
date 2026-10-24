@@ -224,6 +224,7 @@ async def channel_statuses() -> list[dict[str, Any]]:
                 else "COMMS_TELEGRAM_BOT_TOKEN missing or invalid",
                 "allowlist_count": len(tg_allow()),
                 "setup_env": "COMMS_TELEGRAM_BOT_TOKEN + COMMS_TELEGRAM_CHAT_IDS",
+                "keys": ["COMMS_TELEGRAM_BOT_TOKEN", "COMMS_TELEGRAM_CHAT_IDS"],
             }
         )
     except Exception as exc:
@@ -256,6 +257,7 @@ async def channel_statuses() -> list[dict[str, Any]]:
                 "sidecar": st.get("sidecar", get_settings().whatsapp_sidecar_url),
                 "pairing_needed": not connected,
                 "setup_env": "COMMS_WHATSAPP_ALLOW_NUMBERS (E.164) + wa-sidecar running",
+                "keys": ["COMMS_WHATSAPP_ALLOW_NUMBERS", "COMMS_WHATSAPP_SIDECAR_URL"],
             }
         )
     except Exception as exc:
@@ -286,6 +288,11 @@ async def channel_statuses() -> list[dict[str, Any]]:
                 "setup_env": (
                     "COMMS_SLACK_APP_TOKEN + COMMS_SLACK_BOT_TOKEN + COMMS_SLACK_CHANNEL_IDS"
                 ),
+                "keys": [
+                    "COMMS_SLACK_APP_TOKEN",
+                    "COMMS_SLACK_BOT_TOKEN",
+                    "COMMS_SLACK_CHANNEL_IDS",
+                ],
             }
         )
     except Exception as exc:
@@ -317,6 +324,7 @@ async def channel_statuses() -> list[dict[str, Any]]:
                 "allowlist_count": len(teams.allow_list()),
                 "needs_auth": not authed,
                 "setup_env": "COMMS_GRAPH_CLIENT_ID + COMMS_TEAMS_RECIPIENTS",
+                "keys": ["COMMS_GRAPH_CLIENT_ID", "COMMS_TEAMS_RECIPIENTS"],
             }
         )
     except Exception as exc:
@@ -338,6 +346,177 @@ async def channel_statuses() -> list[dict[str, Any]]:
 async def api_channels():
     """Per-channel setup state (Settings Channels section). No secrets."""
     return {"channels": await channel_statuses()}
+
+
+# Writable config surface (Settings Channels section). Keys outside this
+# allowlist are rejected — the browser can never touch anything else.
+_WRITABLE_ENV_KEYS = frozenset(
+    {
+        "COMMS_TELEGRAM_BOT_TOKEN",
+        "COMMS_TELEGRAM_CHAT_IDS",
+        "COMMS_WHATSAPP_ALLOW_NUMBERS",
+        "COMMS_WHATSAPP_SIDECAR_URL",
+        "COMMS_SLACK_APP_TOKEN",
+        "COMMS_SLACK_BOT_TOKEN",
+        "COMMS_SLACK_CHANNEL_IDS",
+        "COMMS_GRAPH_CLIENT_ID",
+        "COMMS_TEAMS_RECIPIENTS",
+        "COMMS_RETENTION_DAYS",
+        "COMMS_INBOUND_SECRET",
+    }
+)
+
+# Test override for the .env location (tests point it at a temp file).
+_ENV_FILE_OVERRIDE: Path | None = None
+
+
+def env_path() -> Path:
+    if _ENV_FILE_OVERRIDE is not None:
+        return _ENV_FILE_OVERRIDE
+    return Path(__file__).resolve().parent.parent.parent / ".env"
+
+
+def apply_config(values: dict[str, Any]) -> dict[str, Any]:
+    """Validate + persist config values to .env and the live process env.
+
+    Returns {"applied": [keys]}. Raises ValueError on the first problem —
+    nothing is written unless every value validates.
+    """
+    import os
+
+    cleaned: dict[str, str] = {}
+    for key, raw in values.items():
+        if key not in _WRITABLE_ENV_KEYS:
+            raise ValueError(f"key not writable: {key}")
+        value = str(raw).strip() if raw is not None else ""
+        if key == "COMMS_RETENTION_DAYS":
+            try:
+                days = int(value or "7")
+            except ValueError:
+                raise ValueError("COMMS_RETENTION_DAYS must be an integer") from None
+            if days < 1:
+                raise ValueError("COMMS_RETENTION_DAYS must be >= 1")
+            value = str(days)
+        cleaned[key] = value
+    path = env_path()
+    lines: list[str] = []
+    if path.is_file():
+        lines = path.read_text(encoding="utf-8").splitlines()
+    seen: set[str] = set()
+    out: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#") and "=" in stripped:
+            name = stripped.split("=", 1)[0].strip()
+            if name in cleaned:
+                out.append(f"{name}={cleaned[name]}")
+                seen.add(name)
+                continue
+        out.append(line)
+    for key, value in cleaned.items():
+        if key not in seen:
+            out.append(f"{key}={value}")
+    path.write_text("\n".join(out) + "\n", encoding="utf-8")
+    for key, value in cleaned.items():
+        os.environ[key] = value
+    log.warning("config updated via REST: %s", ", ".join(sorted(cleaned)))
+    return {"applied": sorted(cleaned)}
+
+
+@app.post("/api/v1/config")
+async def api_config(request: Request):
+    """Persist channel credentials (Settings Channels section).
+
+    Body: {"values": {"COMMS_TELEGRAM_BOT_TOKEN": "...", ...}}. Applies to
+    .env AND the live process (config is re-read per call — no restart).
+    Returns applied key NAMES only, never values.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"success": False, "error": "invalid JSON"}, status_code=400)
+    values = body.get("values")
+    if not isinstance(values, dict) or not values:
+        return JSONResponse({"success": False, "error": "values object required"}, status_code=400)
+    try:
+        result = apply_config(values)
+    except ValueError as exc:
+        return JSONResponse({"success": False, "error": str(exc)}, status_code=400)
+    except OSError as exc:
+        return JSONResponse({"success": False, "error": f"write failed: {exc}"}, status_code=500)
+    return {"success": True, **result}
+
+
+@app.post("/api/v1/teams/auth")
+async def api_teams_auth(request: Request):
+    """Teams device-code flow from the Settings UI (no CLI needed).
+
+    Body: {"action": "start"|"poll"|"reset"}. start fetches a fresh user
+    code (clears any stale flow first); poll checks a pending flow; reset
+    wipes tokens + pending flow. The single auth_status() primitive both
+    starts and polls, so start = reset-pending + call, poll = call.
+    """
+    import asyncio as _asyncio
+
+    from .adapters import teams
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"success": False, "error": "invalid JSON"}, status_code=400)
+    action = str(body.get("action", "poll")).strip().lower()
+    if action not in ("start", "poll", "reset"):
+        return JSONResponse(
+            {"success": False, "error": "action must be start|poll|reset"},
+            status_code=400,
+        )
+
+    def _run() -> dict[str, Any]:
+        if action == "reset":
+            teams._pending_flow = None
+            try:
+                path = teams._token_path()
+                if path.exists():
+                    path.unlink()
+            except OSError as exc:
+                return {"success": False, "error": f"reset failed: {exc}"}
+            return {"success": True, "status": "reset"}
+        if action == "start":
+            teams._pending_flow = None
+        return teams.auth_status()
+
+    try:
+        result = await _asyncio.to_thread(_run)
+    except Exception as exc:
+        return JSONResponse({"success": False, "error": str(exc)}, status_code=502)
+    return result
+
+
+@app.get("/api/v1/whatsapp/qr")
+async def api_whatsapp_qr():
+    """Pairing state for the Settings WhatsApp card (explicit click only).
+
+    Returns presence flags + pairing_code; the raw QR blob stays in the
+    sidecar. Never logged.
+    """
+    from .adapters import whatsapp
+
+    try:
+        pair = await whatsapp.pairing_info()
+    except Exception as exc:
+        return JSONResponse(
+            {"success": False, "error": f"sidecar unreachable: {exc}"}, status_code=502
+        )
+    if not pair.get("success"):
+        return JSONResponse(
+            {"success": False, "error": str(pair.get("error", "no pairing data"))},
+            status_code=502,
+        )
+    return {
+        "success": True,
+        "qr_present": bool(pair.get("qr")),
+        "pairing_code": pair.get("pairing_code"),
+    }
 
 
 @app.post("/api/v1/send")
@@ -386,6 +565,9 @@ async def api_capabilities():
             "GET /api/v1/inbound",
             "GET /api/v1/status",
             "GET /api/v1/channels",
+            "POST /api/v1/config",
+            "POST /api/v1/teams/auth",
+            "GET /api/v1/whatsapp/qr",
             "POST /api/v1/send",
             "POST /api/v1/inbound/wa",
             "GET /api/capabilities",
