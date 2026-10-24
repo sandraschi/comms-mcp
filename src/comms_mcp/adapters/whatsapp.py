@@ -184,7 +184,11 @@ def _run_sidecar() -> None:
                 _sidecar_proc = None
             return
         if _probe_running():
-            _set_phase("running", f"listening (pid {proc.pid}) — pair from Settings")
+            _set_phase(
+                "running",
+                f"listening (pid {proc.pid}) — pair from Settings",
+                pid=proc.pid,
+            )
             return
         time.sleep(3)
     _set_phase("failed", "boot timed out waiting for /health")
