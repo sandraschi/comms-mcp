@@ -135,9 +135,12 @@ def test_lifecycle_start_short_circuits(monkeypatch):
     _reset_sidecar()
 
 
-def test_status_unreachable_shape():
+def test_status_unreachable_shape(monkeypatch):
     import asyncio
 
+    # Dead port on purpose: must report unreachable regardless of any
+    # real bridge running on the default port.
+    monkeypatch.setenv("COMMS_SIGNAL_SIDECAR_URL", "http://127.0.0.1:19999")
     result = asyncio.run(signal.status())
     assert result["success"] is False
     assert "configured" in result
