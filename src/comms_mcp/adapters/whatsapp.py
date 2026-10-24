@@ -150,12 +150,16 @@ def _run_sidecar() -> None:
             return
     _set_phase("starting", "booting baileys, waiting for /health")
     settings = get_settings()
-    env = {
-        "WA_PORT": str(sidecar_port()),
-        "COMMS_INBOUND_WEBHOOK": f"http://127.0.0.1:{settings.port}/api/v1/inbound/wa",
-        "COMMS_INBOUND_SECRET": settings.inbound_secret,
-        "PATH": os.environ.get("PATH", ""),
-    }
+    # Inherit the full parent env (Node on Windows needs SYSTEMROOT etc.)
+    # and override only the sidecar keys.
+    env = dict(os.environ)
+    env.update(
+        {
+            "WA_PORT": str(sidecar_port()),
+            "COMMS_INBOUND_WEBHOOK": f"http://127.0.0.1:{settings.port}/api/v1/inbound/wa",
+            "COMMS_INBOUND_SECRET": settings.inbound_secret,
+        }
+    )
     try:
         proc = subprocess.Popen(
             [node, "index.js"],
