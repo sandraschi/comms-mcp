@@ -1,5 +1,16 @@
 # Install comms-mcp backend + WhatsApp sidecar as NSSM services.
 # Run elevated:  powershell -ExecutionPolicy Bypass -File scripts\install-services.ps1
+#
+# Notes (v0.8):
+# - The backend auto-manages sidecars on boot (adopt-if-alive, opt-in
+#   autostart via COMMS_SIDECAR_AUTOSTART). The comms-mcp-wa service below is
+#   the standalone/always-on path — pick ONE manager per sidecar, not both.
+#   If the backend owns the sidecar, remove the wa service (nssm remove).
+# - Signal needs no NSSM service: the backend runs it as a Docker container
+#   with --restart unless-stopped, so Docker restarts it, not NSSM.
+# - COMMS_INBOUND_SECRET is passed through to the wa sidecar so the webhook
+#   check matches the backend (was missing -> 401 on every inbound with a
+#   secret set).
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $nssm = "C:\Users\sandr\AppData\Local\Microsoft\WinGet\Links\nssm.exe"
@@ -22,7 +33,7 @@ $services = @(
         Name    = "comms-mcp-wa"
         Cmd     = "`"$node`" index.js"
         Dir     = Join-Path $Root "wa-sidecar"
-        Env     = "WA_PORT=11208;COMMS_INBOUND_WEBHOOK=http://127.0.0.1:11205/api/v1/inbound/wa"
+        Env     = "WA_PORT=11208;COMMS_INBOUND_WEBHOOK=http://127.0.0.1:11205/api/v1/inbound/wa;COMMS_INBOUND_SECRET=$env:COMMS_INBOUND_SECRET"
         Log     = Join-Path $Root "logs"
     }
 )

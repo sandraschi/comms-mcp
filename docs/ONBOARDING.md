@@ -38,8 +38,10 @@ Sanity: `http://127.0.0.1:11205/health` returns `{"status":"ok",...}` and
 
 ### 2. WhatsApp (3 min, phone needed)
 
-1. `cd wa-sidecar; npm install; node index.js` (or install the
-   `comms-mcp-wa` NSSM service via `scripts/install-services.ps1`).
+1. Backend auto-manages the sidecar: enable `COMMS_SIDECAR_AUTOSTART=1`
+   (default) and set an allowlist below — or press **Start sidecar** in
+   Settings → Channels → WhatsApp. (Manual fallback: `cd wa-sidecar;
+   npm install; node index.js`, or the `comms-mcp-wa` NSSM service.)
 2. `comms_ops(operation="status", channel="whatsapp")` — on first run it reports
    pairing; open the sidecar `/qr` URL and scan it with WhatsApp on the phone
    (Settings → Linked devices). Auth persists in `data/wa-auth/`.
@@ -64,6 +66,9 @@ accounts have limited `/chats` support.
 3. `comms_ops(operation="auth", channel="teams")` → open the shown
    microsoft.com/devicelogin URL, enter the code, call `auth` again to confirm.
 4. Verify: `comms_ops(operation="status", channel="teams")`.
+   Team channels work too: `team/{teamId}/channel/{channelId}` (or a bare
+   `@thread.tacv2` id) for send/history/read_recent/edit/delete; channel
+   reads need ChannelMessage.Read.All (usually admin-consented).
 
 ### 5. Signal (5 min, DEDICATED number + Docker)
 
@@ -94,6 +99,9 @@ number you can afford to lose. NEVER your personal primary.
   Desktop and Start bridge again; the phase line shows pull/boot progress.
 - **Signal "not linked"**: number never linked/registered — Show link QR and
   scan, or register + verify. Linking expires; re-scan if stale.
+- **Send failed**: find it in the console Outbox (filter `failed`) and hit
+  **Retry failed** — the resend preserves reply threading and reuses the same
+  allowlist gate.
 - **Two backends, two databases**: the NSSM service and an interactive
   `just serve` each own their store unless `COMMS_DB_PATH` is absolute and
   shared. The installer pins it; interactive runs default to `data/comms.db`

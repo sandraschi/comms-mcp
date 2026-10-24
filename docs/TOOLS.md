@@ -1,12 +1,12 @@
 # Tools
 
-## comms_ops — unified comms portmanteau (v0.7.0, text only)
+## comms_ops — unified comms portmanteau (v0.8.0, text only)
 
 | operation | channels | Description |
 |---|---|---|
 | `send` | all | Send text; Telegram `thread_ts`=reply_to + `parse_mode`=HTML; Slack/Teams `thread_ts`=thread reply |
-| `read_recent` | all | Telegram polls getUpdates (offset-persisted); Signal polls receive; Slack/Teams live history when `chat_id` given, else stored inbound |
-| `list_threads` | all | Telegram: allowlist enriched with chat titles; Slack: live channels; Teams: live chats; WhatsApp/Signal: allowlist |
+| `read_recent` | all | Telegram polls getUpdates (offset-persisted); Signal polls receive; Slack/Teams live history when `chat_id` given (Teams: chat id or `team/{id}/channel/{id}`), else stored inbound |
+| `list_threads` | all | Telegram: allowlist enriched with chat titles; Slack: live channels; Teams: live chats + teams-with-channels; WhatsApp/Signal: allowlist |
 | `status` | all | Bot identity + pairing state (WhatsApp QR when disconnected; Signal link state) |
 | `auth` | teams | Teams OAuth device-code flow |
 | `history` | slack/teams | Live channel/chat history, `limit` 1-100 |
@@ -33,6 +33,7 @@
 - `GET /api/capabilities` — server/channels/tools/endpoints
 - `GET /api/skills` — skill listing (skill-first agents)
 - `GET /api/v1/outbox?status=&limit=` — delivery log
+- `POST /api/v1/outbox/retry` — resend failed rows (`{"id"?}`), old rows → `retried`
 - `GET /api/v1/inbound?chat_id=&limit=` — recent inbound
 - `POST /api/shutdown` — orderly exit (NSSM-safe bounce)
 - `/mcp` — MCP streamable HTTP (`comms_ops`, `comms_shutdown`, `comms_show_status`)
@@ -60,7 +61,8 @@
 - Setup: create app (socket mode, scopes channels:history, channels:read, chat:write, reactions:write, search:read), set tokens, invite bot to channels, add channels to allowlist
 
 ## Teams (v0.4 Graph + v0.6 text fatten: live chats/history/replies/edit/delete)
-- `comms_ops(operation="auth"|"send"|"history"|"edit"|"delete", channel="teams")`: send (allowlist COMMS_TEAMS_RECIPIENTS, optional `thread_ts` replyTo), status (Graph /me), list_threads (live chats with allowlist fallback), history/read_recent (live chat messages, text only), auth (device flow)
+- `comms_ops(operation="auth"|"send"|"history"|"edit"|"delete", channel="teams")`: send (allowlist COMMS_TEAMS_RECIPIENTS, optional `thread_ts` replyTo), status (Graph /me), list_threads (live chats + teams-with-channels), history/read_recent (live chat OR channel messages — `team/{teamId}/channel/{channelId}` or bare `@thread.tacv2` id), auth (device flow)
+- Channel reads/sends need ChannelMessage.Read.All (usually admin-consented); the 403 names it
 - Reuses email-mcp's Azure app registration (COMMS_GRAPH_CLIENT_ID); no Bot Framework / bot registration
 - Auth: `comms_ops(operation="auth", channel="teams")` -> enter the code at microsoft.com/devicelogin -> call auth again to confirm
 - Allowlist format: `steve=stephanschipal@hotmail.com` (email) or `channel=19:xxxx` (existing chat id); send resolves the target to a Teams chat and posts /chats/{id}/messages

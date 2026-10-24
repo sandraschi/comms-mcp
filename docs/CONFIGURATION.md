@@ -16,6 +16,7 @@ All settings via env (prefix `COMMS_`) or `.env`:
 | `COMMS_TEAMS_RECIPIENTS` | "" | Teams allowlist: `name=email` or `name=19:chatId` |
 | `COMMS_TEAMS_TOKEN_FILE` | data/teams_oauth.json | Teams OAuth token store (device flow) |
 | `COMMS_TEAMS_GRAPH_BASE` | https://graph.microsoft.com/v1.0 | Graph API base |
+| `COMMS_SIDECAR_AUTOSTART` | 1 | Auto-start sidecars on boot when their lane is configured |
 | `COMMS_SIGNAL_SIDECAR_URL` | http://127.0.0.1:18080 | Signal bridge base URL (Docker) |
 | `COMMS_SIGNAL_NUMBER` | "" | Linked/registered Signal number (E.164, DEDICATED) |
 | `COMMS_SIGNAL_RECIPIENTS` | "" | Comma-separated E.164 allowlist |
