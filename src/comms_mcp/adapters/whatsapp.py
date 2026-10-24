@@ -73,7 +73,7 @@ def _probe_running() -> bool:
         import urllib.request
 
         with urllib.request.urlopen(f"{_base()}/health", timeout=3) as r:
-            return r.status == 200
+            return 200 <= r.status < 300
     except Exception:
         return False
 
