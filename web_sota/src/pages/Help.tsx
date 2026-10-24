@@ -54,6 +54,7 @@ const CHANNELS = [
             "Reuse email-mcp's Azure app registration, or create one (Entra → App registrations).",
             "Set COMMS_GRAPH_CLIENT_ID + COMMS_TEAMS_RECIPIENTS (name=email or name=19:chatId).",
             'Run comms_ops(operation="auth", channel="teams") — enter the code at microsoft.com/devicelogin, then call again to confirm.',
+            "Team channels too: team/{teamId}/channel/{channelId} or a bare @thread.tacv2 id (channel reads need ChannelMessage.Read.All).",
             "Attendance/recordings/transcripts need admin consent for OnlineMeetingArtifact.Read.All.",
         ],
     },
@@ -86,6 +87,11 @@ const FIXES = [
         symptom: "send → 403 chat not in allowlist",
         cause: "chat_id not in the channel allowlist (server-side gate).",
         fix: "Add the id to the channel's allowlist env (see Channels tab), restart backend.",
+    },
+    {
+        symptom: "Send failed (outbox)",
+        cause: "Channel rejected the send (token, allowlist, or tenant scope).",
+        fix: "Outbox → filter failed → Retry failed. The resend preserves reply threading; the error names the cause.",
     },
     {
         symptom: "Signal bridge never appears",

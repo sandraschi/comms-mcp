@@ -29,6 +29,15 @@ interface ChannelState {
 
 const isSecretKey = (key: string) => /TOKEN|SECRET/.test(key);
 
+const qrAge = (fetchedAt?: string) => {
+    if (!fetchedAt) return "";
+    const s = Math.max(
+        0,
+        Math.round((Date.now() - Date.parse(fetchedAt)) / 1000),
+    );
+    return `fetched ${s}s ago — codes rotate ~60s, reshow if stale`;
+};
+
 export default function Settings() {
     const {
         providers,
@@ -539,6 +548,11 @@ export default function Settings() {
                                             {pairing.pairing_code}
                                         </span>
                                     )}
+                                    {pairing?.fetched_at && (
+                                        <div className="mt-1 text-sm text-zinc-500">
+                                            {qrAge(pairing.fetched_at)}
+                                        </div>
+                                    )}
                                     {pairing?.error && (
                                         <span className="ml-3 text-sm text-red-300">
                                             {pairing.error}
@@ -624,6 +638,11 @@ export default function Settings() {
                                             <span className="text-sm text-red-300">
                                                 {signalQr.error}
                                             </span>
+                                        )}
+                                        {signalQr?.fetched_at && (
+                                            <div className="text-sm text-zinc-500">
+                                                {qrAge(signalQr.fetched_at)}
+                                            </div>
                                         )}
                                     </div>
                                     {signalQr?.qr_image && (

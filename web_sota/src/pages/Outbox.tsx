@@ -23,6 +23,8 @@ export default function Outbox() {
     const [page, setPage] = useState(0);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [retrying, setRetrying] = useState(false);
+    const [retryNote, setRetryNote] = useState<string | null>(null);
 
     const load = async (status: string) => {
         setLoading(true);
@@ -38,6 +40,24 @@ export default function Outbox() {
         }
         setLoading(false);
         setPage(0);
+    };
+
+    const retryFailed = async () => {
+        setRetrying(true);
+        setRetryNote(null);
+        try {
+            const r = await api.post("/api/v1/outbox/retry", {});
+            const n = r.data.retried ?? 0;
+            setRetryNote(
+                n > 0
+                    ? `Retried ${n} — old rows marked retried, new attempts queued`
+                    : "No failed rows accepted the resend (still failing?)",
+            );
+            await load(filter);
+        } catch {
+            setRetryNote("Retry request failed — is the backend reachable?");
+        }
+        setRetrying(false);
     };
 
     useEffect(() => {
@@ -113,7 +133,19 @@ export default function Outbox() {
                 >
                     {sortNewest ? "newest first" : "oldest first"}
                 </button>
+                <button
+                    type="button"
+                    onClick={() => void retryFailed()}
+                    disabled={retrying}
+                    data-testid="outbox-retry"
+                    className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-sm text-amber-200 disabled:opacity-40"
+                >
+                    {retrying ? "Retrying…" : "Retry failed"}
+                </button>
             </div>
+            {retryNote && (
+                <div className="mt-2 text-sm text-zinc-300">{retryNote}</div>
+            )}
             <div
                 data-testid="outbox-count"
                 className="mt-2 text-sm text-zinc-300"
