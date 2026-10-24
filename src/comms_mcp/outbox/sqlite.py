@@ -49,6 +49,13 @@ def _conn(db_path: Path | None = None) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.executescript(_SCHEMA)
+    # v0.8 migration: preserve reply/formatting context for outbox retry.
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(outbox)").fetchall()}
+    if "thread_ts" not in cols:
+        conn.execute("ALTER TABLE outbox ADD COLUMN thread_ts TEXT")
+    if "parse_mode" not in cols:
+        conn.execute("ALTER TABLE outbox ADD COLUMN parse_mode TEXT")
+    conn.commit()
     return conn
 
 
@@ -56,14 +63,22 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def enqueue(channel: str, chat_id: str, text: str, db_path: Path | None = None) -> dict[str, Any]:
+def enqueue(
+    channel: str,
+    chat_id: str,
+    text: str,
+    db_path: Path | None = None,
+    thread_ts: str | None = None,
+    parse_mode: str | None = None,
+) -> dict[str, Any]:
     with _lock:
         conn = _conn(db_path)
         try:
             cur = conn.execute(
-                "INSERT INTO outbox(channel, chat_id, text, status, created_at)"
-                " VALUES (?,?,?,'pending',?)",
-                (channel, chat_id, text, _now()),
+                "INSERT INTO outbox(channel, chat_id, text, status, created_at,"
+                " thread_ts, parse_mode)"
+                " VALUES (?,?,?,'pending',?,?,?)",
+                (channel, chat_id, text, _now(), thread_ts, parse_mode),
             )
             conn.commit()
             return {
@@ -181,3 +196,33 @@ def status_counts(db_path: Path | None = None) -> dict[str, Any]:
         return {"outbox": out, "inbound_total": inbound_total}
     finally:
         conn.close()
+
+
+def failed_rows(limit: int = 20, db_path: Path | None = None) -> list[dict[str, Any]]:
+    """Failed outbox rows, oldest first (retry order)."""
+    conn = _conn(db_path)
+    try:
+        return [
+            dict(r)
+            for r in conn.execute(
+                "SELECT * FROM outbox WHERE status='failed' ORDER BY id ASC LIMIT ?",
+                (max(1, min(int(limit), 50)),),
+            ).fetchall()
+        ]
+    finally:
+        conn.close()
+
+
+def mark_retried(outbox_id: int, db_path: Path | None = None) -> bool:
+    """Terminal informational state: superseded by a retry attempt."""
+    with _lock:
+        conn = _conn(db_path)
+        try:
+            cur = conn.execute(
+                "UPDATE outbox SET status='retried' WHERE id=? AND status='failed'",
+                (outbox_id,),
+            )
+            conn.commit()
+            return cur.rowcount > 0
+        finally:
+            conn.close()

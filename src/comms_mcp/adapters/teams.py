@@ -16,6 +16,11 @@ Read is text-only: list_chats / chat_messages return plain text
 (HTML bodies are stripped, no cards/files). Replies use replyToId.
 Edits/deletes map to PATCH/DELETE on the chat message.
 
+Channels: team/channel targets use the address form
+"team/{teamId}/channel/{channelId}" (or a bare channel id, resolved by
+scanning joined teams). Channel reads need ChannelMessage.Read.All
+(often admin-consented); the 403 names the missing scope.
+
 Caveat: Graph Teams chat APIs require an organizational (work/school)
 identity; personal consumer accounts have limited /chats support. Configure a
 target that has a Teams identity for reliable 1:1 chat.
@@ -378,6 +383,354 @@ async def chat_messages(chat_id: str, limit: int = 20) -> dict[str, Any]:
         }
     except Exception as exc:
         return {"success": False, "error": str(exc)}
+
+
+def is_channel_id(ref: str) -> bool:
+    """Channel message ids live under @thread.tacv2; chat ids do not."""
+    return "@thread.tacv2" in (ref or "")
+
+
+def parse_channel_ref(ref: str) -> tuple[str | None, str | None]:
+    """Split "team/{teamId}/channel/{channelId}" or a bare channel id.
+
+    Returns (team_id, channel_id); team_id None means "resolve by scan".
+    Returns (None, None) when ref is not a channel address at all.
+    """
+    text = (ref or "").strip()
+    if text.startswith("team/") and "/channel/" in text:
+        try:
+            _, team_part = text.split("team/", 1)
+            team_id, channel_id = team_part.split("/channel/", 1)
+            if team_id and channel_id:
+                return team_id, channel_id
+        except ValueError:
+            pass
+        return None, None
+    if is_channel_id(text):
+        return None, text
+    return None, None
+
+
+async def _authed_token() -> str | None:
+    return await asyncio.to_thread(_access_token)
+
+
+async def list_teams() -> dict[str, Any]:
+    """Joined teams via GET /me/joinedTeams (needs Team.ReadBasic.All)."""
+    if not configured():
+        return {"success": False, "configured": False, "error": "COMMS_GRAPH_CLIENT_ID not set"}
+    token = await _authed_token()
+    if not token:
+        return {
+            "success": False,
+            "configured": True,
+            "needs_auth": True,
+            "error": "not authorized - run comms_ops(operation='auth', channel='teams')",
+        }
+    try:
+        async with httpx.AsyncClient(timeout=TIMEOUT_S) as client:
+            r = await client.get(
+                f"{_cfg().teams_graph_base}/me/joinedTeams",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            r.raise_for_status()
+            teams = [
+                {"id": t.get("id"), "displayName": t.get("displayName")}
+                for t in r.json().get("value", [])
+            ]
+        return {"success": True, "teams": teams}
+    except httpx.HTTPStatusError as exc:
+        return {
+            "success": False,
+            "error": f"graph {exc.response.status_code}: {exc.response.text[:300]}",
+        }
+    except Exception as exc:
+        return {"success": False, "error": str(exc)}
+
+
+async def team_channels(team_id: str) -> dict[str, Any]:
+    """Channels of one team via GET /teams/{id}/channels."""
+    if not configured():
+        return {"success": False, "error": "COMMS_GRAPH_CLIENT_ID not set"}
+    token = await _authed_token()
+    if not token:
+        return {
+            "success": False,
+            "error": "not authorized - run comms_ops(operation='auth', channel='teams')",
+        }
+    try:
+        async with httpx.AsyncClient(timeout=TIMEOUT_S) as client:
+            r = await client.get(
+                f"{_cfg().teams_graph_base}/teams/{quote(team_id, safe='')}/channels",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            r.raise_for_status()
+            channels = [
+                {"id": c.get("id"), "displayName": c.get("displayName")}
+                for c in r.json().get("value", [])
+            ]
+        return {"success": True, "team_id": team_id, "channels": channels}
+    except httpx.HTTPStatusError as exc:
+        return {
+            "success": False,
+            "error": f"graph {exc.response.status_code}: {exc.response.text[:300]}",
+        }
+    except Exception as exc:
+        return {"success": False, "error": str(exc)}
+
+
+async def list_teams_with_channels() -> dict[str, Any]:
+    """Joined teams, each with its channel list (best effort per team)."""
+    teams_res = await list_teams()
+    if not teams_res.get("success"):
+        return teams_res
+    out: list[dict[str, Any]] = []
+    for team in teams_res.get("teams", []):
+        channels_res = await team_channels(str(team.get("id", "")))
+        out.append(
+            {
+                "id": team.get("id"),
+                "displayName": team.get("displayName"),
+                "channels": channels_res.get("channels", []),
+            }
+        )
+    return {"success": True, "teams": out}
+
+
+async def _resolve_team_for_channel(token: str, channel_id: str) -> str | None:
+    """Find the parent team of a bare channel id by scanning joined teams."""
+    try:
+        async with httpx.AsyncClient(timeout=TIMEOUT_S) as client:
+            r = await client.get(
+                f"{_cfg().teams_graph_base}/me/joinedTeams?$select=id",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            r.raise_for_status()
+            team_ids = [t.get("id") for t in r.json().get("value", []) if t.get("id")]
+        async with httpx.AsyncClient(timeout=TIMEOUT_S) as client:
+            for team_id in team_ids:
+                try:
+                    r = await client.get(
+                        f"{_cfg().teams_graph_base}/teams/{quote(str(team_id), safe='')}"
+                        "/channels?$select=id",
+                        headers={"Authorization": f"Bearer {token}"},
+                    )
+                    if r.status_code != 200:
+                        continue
+                    if any(c.get("id") == channel_id for c in r.json().get("value", [])):
+                        return str(team_id)
+                except Exception:
+                    continue
+    except Exception as exc:
+        log.warning("teams channel-team scan failed: %s", exc)
+    return None
+
+
+def _map_channel_messages(data: Any, team_id: str, channel_id: str) -> dict[str, Any]:
+    messages = [
+        {
+            "id": m.get("id"),
+            "from": ((m.get("from") or {}).get("user") or {}).get("displayName"),
+            "text": _strip_html((m.get("body") or {}).get("content", ""))[:2000],
+            "createdDateTime": m.get("createdDateTime"),
+        }
+        for m in (data.get("value", []) if isinstance(data, dict) else [])
+    ]
+    return {
+        "success": True,
+        "team_id": team_id,
+        "channel_id": channel_id,
+        "messages": messages,
+    }
+
+
+async def channel_messages(team_id: str, channel_id: str, limit: int = 20) -> dict[str, Any]:
+    """Recent channel messages (needs ChannelMessage.Read.All, text only)."""
+    if not configured():
+        return {"success": False, "error": "COMMS_GRAPH_CLIENT_ID not set"}
+    token = await _authed_token()
+    if not token:
+        return {
+            "success": False,
+            "error": "not authorized - run comms_ops(operation='auth', channel='teams')",
+        }
+    try:
+        n = max(1, min(int(limit), 100))
+        async with httpx.AsyncClient(timeout=TIMEOUT_S) as client:
+            r = await client.get(
+                f"{_cfg().teams_graph_base}/teams/{quote(team_id, safe='')}"
+                f"/channels/{quote(channel_id, safe='')}/messages?$top={n}",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            r.raise_for_status()
+            return _map_channel_messages(r.json(), team_id, channel_id)
+    except httpx.HTTPStatusError as exc:
+        return {
+            "success": False,
+            "error": f"graph {exc.response.status_code}: {exc.response.text[:300]}",
+        }
+    except Exception as exc:
+        return {"success": False, "error": str(exc)}
+
+
+async def channel_send(
+    team_id: str | None, channel_id: str, text: str, reply_to: str | None = None
+) -> dict[str, Any]:
+    """Post to a team channel (resolves the team by scan when omitted)."""
+    if not configured():
+        return {"success": False, "error": "COMMS_GRAPH_CLIENT_ID not set"}
+    token = await _authed_token()
+    if not token:
+        return {
+            "success": False,
+            "error": "not authorized - run comms_ops(operation='auth', channel='teams')",
+        }
+    if not team_id:
+        team_id = await _resolve_team_for_channel(token, channel_id)
+    if not team_id:
+        return {"success": False, "error": f"could not find the team for channel {channel_id}"}
+    payload = {"body": {"contentType": "text", "content": text[:28000]}}
+    try:
+        async with httpx.AsyncClient(timeout=TIMEOUT_S) as client:
+            if reply_to:
+                r = await client.post(
+                    f"{_cfg().teams_graph_base}/teams/{quote(team_id, safe='')}"
+                    f"/channels/{quote(channel_id, safe='')}/messages/"
+                    f"{quote(reply_to, safe='')}/replies",
+                    json=payload,
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+            else:
+                r = await client.post(
+                    f"{_cfg().teams_graph_base}/teams/{quote(team_id, safe='')}"
+                    f"/channels/{quote(channel_id, safe='')}/messages",
+                    json=payload,
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+            r.raise_for_status()
+            msg = r.json()
+        return {
+            "success": True,
+            "team_id": team_id,
+            "channel_id": channel_id,
+            "message_id": msg.get("id"),
+        }
+    except httpx.HTTPStatusError as exc:
+        return {
+            "success": False,
+            "error": f"graph {exc.response.status_code}: {exc.response.text[:300]}",
+        }
+    except Exception as exc:
+        return {"success": False, "error": str(exc)}
+
+
+async def channel_edit(team_id: str, channel_id: str, message_id: str, text: str) -> dict[str, Any]:
+    """Edit a channel message (PATCH body, text only)."""
+    if not configured():
+        return {"success": False, "error": "COMMS_GRAPH_CLIENT_ID not set"}
+    token = await _authed_token()
+    if not token:
+        return {
+            "success": False,
+            "error": "not authorized - run comms_ops(operation='auth', channel='teams')",
+        }
+    try:
+        async with httpx.AsyncClient(timeout=TIMEOUT_S) as client:
+            r = await client.patch(
+                f"{_cfg().teams_graph_base}/teams/{quote(team_id, safe='')}"
+                f"/channels/{quote(channel_id, safe='')}/messages/{quote(message_id, safe='')}",
+                json={"body": {"contentType": "text", "content": text[:28000]}},
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            r.raise_for_status()
+            return {"success": True, "channel_id": channel_id, "message_id": message_id}
+    except httpx.HTTPStatusError as exc:
+        return {
+            "success": False,
+            "error": f"graph {exc.response.status_code}: {exc.response.text[:300]}",
+        }
+    except Exception as exc:
+        return {"success": False, "error": str(exc)}
+
+
+async def channel_delete(team_id: str, channel_id: str, message_id: str) -> dict[str, Any]:
+    """Soft-delete a channel message (DELETE)."""
+    if not configured():
+        return {"success": False, "error": "COMMS_GRAPH_CLIENT_ID not set"}
+    token = await _authed_token()
+    if not token:
+        return {
+            "success": False,
+            "error": "not authorized - run comms_ops(operation='auth', channel='teams')",
+        }
+    try:
+        async with httpx.AsyncClient(timeout=TIMEOUT_S) as client:
+            r = await client.delete(
+                f"{_cfg().teams_graph_base}/teams/{quote(team_id, safe='')}"
+                f"/channels/{quote(channel_id, safe='')}/messages/{quote(message_id, safe='')}",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            r.raise_for_status()
+            return {"success": True, "channel_id": channel_id, "message_id": message_id}
+    except httpx.HTTPStatusError as exc:
+        return {
+            "success": False,
+            "error": f"graph {exc.response.status_code}: {exc.response.text[:300]}",
+        }
+    except Exception as exc:
+        return {"success": False, "error": str(exc)}
+
+
+# ── address-form wrappers ("team/{t}/channel/{c}" or bare channel id) ──────
+# The gateway routes on parse_channel_ref(); these resolve + delegate.
+
+
+async def channel_history(ref: str, limit: int = 20) -> dict[str, Any]:
+    """Read channel messages by address form (resolves team by scan)."""
+    team_id, channel_id = parse_channel_ref(ref)
+    if channel_id is None:
+        return {"success": False, "error": f"not a channel address: {ref}"}
+    if not team_id:
+        token = await _authed_token()
+        if not token:
+            return {
+                "success": False,
+                "error": "not authorized - run comms_ops(operation='auth', channel='teams')",
+            }
+        team_id = await _resolve_team_for_channel(token, channel_id)
+    if not team_id:
+        return {"success": False, "error": f"could not find the team for channel {channel_id}"}
+    return await channel_messages(team_id, channel_id, limit=limit)
+
+
+async def channel_post(ref: str, text: str, reply_to: str | None = None) -> dict[str, Any]:
+    """Post to a channel by address form (resolves team by scan)."""
+    team_id, channel_id = parse_channel_ref(ref)
+    if channel_id is None:
+        return {"success": False, "error": f"not a channel address: {ref}"}
+    return await channel_send(team_id, channel_id, text, reply_to=reply_to)
+
+
+async def channel_edit_msg(ref: str, message_id: str, text: str) -> dict[str, Any]:
+    """Edit a channel message by address form (team required)."""
+    team_id, channel_id = parse_channel_ref(ref)
+    if channel_id is None or not team_id:
+        return {
+            "success": False,
+            "error": f"channel edit needs team/{{teamId}}/channel/{{channelId}}, got: {ref}",
+        }
+    return await channel_edit(team_id, channel_id, message_id, text)
+
+
+async def channel_delete_msg(ref: str, message_id: str) -> dict[str, Any]:
+    """Delete a channel message by address form (team required)."""
+    team_id, channel_id = parse_channel_ref(ref)
+    if channel_id is None or not team_id:
+        return {
+            "success": False,
+            "error": f"channel delete needs team/{{teamId}}/channel/{{channelId}}, got: {ref}",
+        }
+    return await channel_delete(team_id, channel_id, message_id)
 
 
 async def edit_message(chat_id: str, message_id: str, text: str) -> dict[str, Any]:

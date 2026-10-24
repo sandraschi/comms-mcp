@@ -36,7 +36,7 @@ def _error_response(operation: str, channel: str, error: str) -> dict[str, Any]:
         "openWorldHint": True,
     },
     output_schema={"type": "object"},
-    version="0.7.0",
+    version="0.8.0",
 )
 async def comms_ops(
     operation: Annotated[
@@ -180,6 +180,13 @@ async def comms_ops(
                 }
             if channel == "teams":
                 live = await teams.list_chats()
+                teams_extra: dict[str, Any] = {}
+                try:
+                    tlist = await teams.list_teams_with_channels()
+                    if tlist.get("success"):
+                        teams_extra["teams"] = tlist.get("teams")
+                except Exception as exc:
+                    teams_extra["teams_warning"] = str(exc)
                 if live.get("success"):
                     return {
                         "success": True,
@@ -188,6 +195,7 @@ async def comms_ops(
                         "threads": live.get("chats"),
                         "allowlist": live.get("allowlist"),
                         "source": "live",
+                        **teams_extra,
                     }
                 return {
                     "success": True,
@@ -238,8 +246,11 @@ async def comms_ops(
                         "source": "live",
                     }
             if channel == "teams" and chat_id:
-                target = teams._cfg_recipients().get(chat_id, chat_id)
-                live = await teams.chat_messages(target, limit=limit)
+                kind, target = await _teams_route(chat_id)
+                if kind == "channel":
+                    live = await teams.channel_history(target, limit=limit)
+                else:
+                    live = await teams.chat_messages(target, limit=limit)
                 if live.get("success"):
                     return {
                         "success": True,
@@ -263,8 +274,11 @@ async def comms_ops(
                 result = await slack.channel_history(chat_id, limit=limit)
                 return {"message": "slack history", **result}
             if channel == "teams":
-                target = teams._cfg_recipients().get(chat_id, chat_id)
-                result = await teams.chat_messages(target, limit=limit)
+                kind, target = await _teams_route(chat_id)
+                if kind == "channel":
+                    result = await teams.channel_history(target, limit=limit)
+                else:
+                    result = await teams.chat_messages(target, limit=limit)
                 return {"message": "teams history", **result}
             if channel == "signal":
                 error = "signal has no history API — use read_recent (polls new messages)"
@@ -297,8 +311,11 @@ async def comms_ops(
                 result = await slack.edit_message(chat_id, thread_ts, text)
                 return {"message": "slack edit", **result}
             if channel == "teams":
-                target = teams._cfg_recipients().get(chat_id, chat_id)
-                result = await teams.edit_message(target, thread_ts, text)
+                kind, target = await _teams_route(chat_id)
+                if kind == "channel":
+                    result = await teams.channel_edit_msg(target, thread_ts, text)
+                else:
+                    result = await teams.edit_message(target, thread_ts, text)
                 return {"message": "teams edit", **result}
             error = f"edit not supported for channel {channel}"
             return {"success": False, "message": error, "error": error}
@@ -313,8 +330,11 @@ async def comms_ops(
                 result = await slack.delete_message(chat_id, thread_ts)
                 return {"message": "slack delete", **result}
             if channel == "teams":
-                target = teams._cfg_recipients().get(chat_id, chat_id)
-                result = await teams.delete_message(target, thread_ts)
+                kind, target = await _teams_route(chat_id)
+                if kind == "channel":
+                    result = await teams.channel_delete_msg(target, thread_ts)
+                else:
+                    result = await teams.delete_message(target, thread_ts)
                 return {"message": "teams delete", **result}
             error = f"delete not supported for channel {channel}"
             return {"success": False, "message": error, "error": error}
@@ -331,7 +351,8 @@ async def comms_ops(
                     "status surfaces QR/pairing when disconnected. History = local store. "
                     "Teams: COMMS_GRAPH_CLIENT_ID + COMMS_TEAMS_RECIPIENTS, "
                     "comms_ops(operation='auth', channel='teams'). "
-                    "history/read_recent/edit/delete need chat_id (name or 19:chat id); "
+                    "history/read_recent/edit/delete need chat_id (name, 19:chat id, or "
+                    "team/{teamId}/channel/{channelId} or bare @thread.tacv2 id); "
                     "send thread_ts = replyTo message id. "
                     "Slack: create app (Socket Mode, scopes channels:history, "
                     "channels:read, chat:write, reactions:write, search:read), invite "
@@ -349,6 +370,19 @@ async def comms_ops(
         return _error_response(operation, channel, str(exc))
 
 
+async def _teams_route(chat_id: str) -> tuple[str, str]:
+    """Resolve a Teams target: ("chat", id) or ("channel", address).
+
+    Aliases (COMMS_TEAMS_RECIPIENTS) resolve first; a channel address is
+    "team/{teamId}/channel/{channelId}" or a bare @thread.tacv2 id.
+    """
+    target = teams._cfg_recipients().get(chat_id, chat_id)
+    _team_id, channel_id = teams.parse_channel_ref(target)
+    if channel_id is not None:
+        return ("channel", target)
+    return ("chat", target)
+
+
 async def _do_send(
     channel: str,
     chat_id: str,
@@ -361,7 +395,7 @@ async def _do_send(
     Normalizes each adapter's success signal (telegram uses 'ok', the others
     'success') into a single outbox-aware response.
     """
-    entry = store.enqueue(channel, chat_id, text)
+    entry = store.enqueue(channel, chat_id, text, thread_ts=thread_ts, parse_mode=parse_mode)
     extra: dict[str, Any] = {}
     try:
         if channel == "telegram":
@@ -383,10 +417,17 @@ async def _do_send(
             extra["thread_ts"] = result.get("thread_ts") if ok and result.get("thread_ts") else None
             error = str(result.get("error", "send failed"))
         elif channel == "teams":
-            result = await teams.send_message(chat_id, text, reply_to=thread_ts)
-            ok = bool(result.get("success"))
-            extra["chat_id"] = result.get("chat_id") if ok else None
-            error = str(result.get("error", "send failed"))
+            kind, target = await _teams_route(chat_id)
+            if kind == "channel":
+                result = await teams.channel_post(target, text, reply_to=thread_ts)
+                ok = bool(result.get("success"))
+                extra["channel_id"] = result.get("channel_id") if ok else None
+                error = str(result.get("error", "send failed"))
+            else:
+                result = await teams.send_message(target, text, reply_to=thread_ts)
+                ok = bool(result.get("success"))
+                extra["chat_id"] = result.get("chat_id") if ok else None
+                error = str(result.get("error", "send failed"))
         elif channel == "signal":
             result = await signal.send_message(chat_id, text)
             ok = bool(result.get("success"))

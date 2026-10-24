@@ -13,6 +13,8 @@ import pytest
 
 from comms_mcp import server
 from comms_mcp.adapters import signal, slack, teams, telegram, whatsapp
+from comms_mcp.adapters import signal as signal_mod
+from comms_mcp.adapters import whatsapp as whatsapp_mod
 
 
 async def _boom():
@@ -127,6 +129,85 @@ class _JsonRequest:
 
     async def json(self):
         return self._body
+
+
+def _use_outbox_db(tmp_path, monkeypatch):
+    db = tmp_path / "retry.db"
+    monkeypatch.setenv("COMMS_DB_PATH", str(db))
+    return db
+
+
+@pytest.mark.asyncio
+async def test_outbox_retry_empty_is_noop(tmp_path, monkeypatch):
+    _use_outbox_db(tmp_path, monkeypatch)
+    result = await server.api_outbox_retry(_JsonRequest({}))
+    assert result == {"results": [], "retried": 0}
+
+
+@pytest.mark.asyncio
+async def test_outbox_retry_marks_superseded(tmp_path, monkeypatch):
+    import comms_mcp.mcp.tools.comms as comms_mod
+
+    _use_outbox_db(tmp_path, monkeypatch)
+    row = server.store.enqueue("telegram", "111", "hello", thread_ts="42", parse_mode="HTML")
+    server.store.mark_failed(row["id"], "boom")
+
+    async def fake_send(channel, chat_id, text, thread_ts=None, parse_mode=None):
+        assert (channel, chat_id, text, thread_ts, parse_mode) == (
+            "telegram",
+            "111",
+            "hello",
+            "42",
+            "HTML",
+        )
+        return {"success": True, "message": "ok"}
+
+    monkeypatch.setattr(comms_mod, "_do_send", fake_send)
+    result = await server.api_outbox_retry(_JsonRequest({}))
+    assert result == {"results": [{"id": row["id"], "success": True}], "retried": 1}
+    remaining = server.store.list_outbox(status="failed")
+    assert remaining == []
+    retried = server.store.list_outbox(status="retried")
+    assert [r["id"] for r in retried] == [row["id"]]
+
+
+@pytest.mark.asyncio
+async def test_outbox_retry_keeps_failures_on_error(tmp_path, monkeypatch):
+    import comms_mcp.mcp.tools.comms as comms_mod
+
+    _use_outbox_db(tmp_path, monkeypatch)
+    row = server.store.enqueue("telegram", "111", "hello")
+
+    async def fake_send(channel, chat_id, text, thread_ts=None, parse_mode=None):
+        return {"success": False, "error": "still down"}
+
+    monkeypatch.setattr(comms_mod, "_do_send", fake_send)
+    server.store.mark_failed(row["id"], "boom")
+    result = await server.api_outbox_retry(_JsonRequest({"id": row["id"]}))
+    assert result["retried"] == 0
+    assert len(server.store.list_outbox(status="failed")) == 1
+
+
+def test_resurrect_idle_without_config(tmp_path, monkeypatch):
+    _use_outbox_db(tmp_path, monkeypatch)
+    monkeypatch.setenv("COMMS_SIDECAR_AUTOSTART", "1")
+    monkeypatch.delenv("COMMS_WHATSAPP_ALLOW_NUMBERS", raising=False)
+    monkeypatch.delenv("COMMS_SIGNAL_NUMBER", raising=False)
+    monkeypatch.setattr(whatsapp_mod, "_probe_running", lambda: False)
+    monkeypatch.setattr(signal_mod, "_probe_running", lambda: False)
+    assert server.resurrect_sidecars() == {"whatsapp": "idle", "signal": "idle"}
+
+
+def test_resurrect_adopts_running_sidecars(tmp_path, monkeypatch):
+    _use_outbox_db(tmp_path, monkeypatch)
+    monkeypatch.setattr(whatsapp_mod, "_probe_running", lambda: True)
+    monkeypatch.setattr(signal_mod, "_probe_running", lambda: True)
+    outcome = server.resurrect_sidecars()
+    assert outcome == {"whatsapp": "adopted", "signal": "adopted"}
+    assert whatsapp_mod.sidecar_state()["phase"] == "running"
+    assert signal_mod.sidecar_state()["phase"] == "running"
+    whatsapp_mod._set_phase("idle", "")
+    signal_mod._set_phase("idle", "")
 
 
 def _reset_sidecar():

@@ -76,6 +76,69 @@ def test_strip_html_to_text():
     assert teams._strip_html("plain") == "plain"
 
 
+def test_channel_address_parsing():
+    assert teams.is_channel_id("19:abc@thread.tacv2") is True
+    assert teams.is_channel_id("19:abc123") is False
+    assert teams.parse_channel_ref("team/T1/channel/19:c@thread.tacv2") == (
+        "T1",
+        "19:c@thread.tacv2",
+    )
+    assert teams.parse_channel_ref("19:c@thread.tacv2") == (None, "19:c@thread.tacv2")
+    assert teams.parse_channel_ref("19:plainchat") == (None, None)
+    assert teams.parse_channel_ref("team//channel/") == (None, None)
+
+
+@pytest.mark.asyncio
+async def test_channel_messages_and_send(monkeypatch):
+    import comms_mcp.adapters.teams as teams_mod
+    import comms_mcp.config as cfg_mod
+
+    monkeypatch.setenv("COMMS_GRAPH_CLIENT_ID", "graph-app-id")
+    teams_mod.get_settings = cfg_mod.get_settings
+    teams_mod._access_token = lambda: "tok"
+
+    import httpx
+
+    async def fake_get(self, url, headers=None):
+        class R:
+            status_code = 200
+
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                if "/channels" in url and "messages" not in url:
+                    return {"value": [{"id": "19:chan@thread.tacv2", "displayName": "General"}]}
+                if "joinedTeams" in url:
+                    return {"value": [{"id": "T1", "displayName": "Ops"}]}
+                return {"value": [{"id": "m9", "body": {"content": "hello"}, "from": {}}]}
+
+        return R()
+
+    async def fake_post(self, url, json=None, headers=None):
+        class R:
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return {"id": "m10"}
+
+        assert "channels" in url and "messages" in url
+        return R()
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+    monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
+    listed = await teams_mod.list_teams_with_channels()
+    assert listed["success"] is True
+    assert listed["teams"][0]["channels"][0]["id"] == "19:chan@thread.tacv2"
+    hist = await teams_mod.channel_messages("T1", "19:chan@thread.tacv2", limit=5)
+    assert hist["success"] is True
+    assert hist["messages"][0]["text"] == "hello"
+    sent = await teams_mod.channel_send(None, "19:chan@thread.tacv2", "hi")
+    assert sent["success"] is True
+    assert sent["team_id"] == "T1"
+
+
 @pytest.mark.asyncio
 async def test_list_chats_live(monkeypatch):
     import comms_mcp.adapters.teams as teams_mod

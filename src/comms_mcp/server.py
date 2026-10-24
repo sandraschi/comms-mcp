@@ -66,6 +66,50 @@ class _LogRing(logging.Handler):
 _log_ring = _LogRing()
 logging.getLogger().addHandler(_log_ring)
 
+
+def resurrect_sidecars() -> dict[str, str]:
+    """Adopt-or-start sidecars on backend boot (never fatal).
+
+    Adopt-if-alive always runs (an NSSM/docker-managed sidecar keeps working
+    and the UI shows it). Auto-START is gated by COMMS_SIDECAR_AUTOSTART and
+    only for lanes somebody configured: WhatsApp when its allowlist is
+    non-empty, Signal when its number is set. Missing docker/node surfaces
+    as a failed phase in Settings, never a boot crash.
+    """
+    from .adapters import signal, whatsapp
+
+    outcome: dict[str, str] = {}
+    try:
+        auto = get_settings().sidecar_autostart.strip() != "0"
+    except Exception:
+        auto = True
+    try:
+        if whatsapp._probe_running():
+            whatsapp._set_phase("running", "adopted on boot — already listening")
+            outcome["whatsapp"] = "adopted"
+        elif auto and [n for n in get_settings().whatsapp_allow_numbers.split(",") if n.strip()]:
+            outcome["whatsapp"] = whatsapp.start_sidecar().get("phase", "?")
+        else:
+            outcome["whatsapp"] = "idle"
+    except Exception as exc:
+        log.warning("whatsapp resurrect failed: %s", exc)
+        outcome["whatsapp"] = "idle"
+    try:
+        if signal._probe_running():
+            signal._set_phase("running", "adopted on boot — already listening")
+            outcome["signal"] = "adopted"
+        elif auto and get_settings().signal_number.strip():
+            outcome["signal"] = signal.start_sidecar().get("phase", "?")
+        else:
+            outcome["signal"] = "idle"
+    except Exception as exc:
+        log.warning("signal resurrect failed: %s", exc)
+        outcome["signal"] = "idle"
+    if any(v not in ("idle", "adopted") for v in outcome.values()):
+        log.warning("sidecar resurrect: %s", outcome)
+    return outcome
+
+
 # Mount the MCP streamable-HTTP app at /mcp (ports registry promises FastMCP
 # HTTP on 11205). BUG-008: http_app(path="/") + mount("/mcp") — never
 # http_app(path="/mcp") mounted at "/mcp" (double prefix, all calls 404).
@@ -101,6 +145,9 @@ async def _lifespan_body():
             log.info("slack socket listener started")
     except Exception as exc:
         log.warning("slack socket listener failed to start: %s", exc)
+
+    # Sidecar auto-resurrect (adopt-if-alive always; auto-start gated).
+    resurrect_sidecars()
 
     yield
 
@@ -184,6 +231,43 @@ async def api_outbox(status: str = "", limit: int = 25):
 @app.get("/api/v1/inbound")
 async def api_inbound(chat_id: str = "", limit: int = 20):
     return {"messages": store.list_inbound(chat_id=chat_id, limit=limit)}
+
+
+@app.post("/api/v1/outbox/retry")
+async def api_outbox_retry(request: Request):
+    """Retry failed outbox rows (Outbox page button).
+
+    Body: {"id": <optional outbox id>} — without id, retries up to 20 oldest
+    failures. Each attempt sends as a NEW outbox row (preserving thread_ts /
+    parse_mode); the old row is marked 'retried' only when the new attempt
+    is accepted by the channel. Returns per-row results.
+    """
+    from .mcp.tools.comms import _do_send
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    want_id = body.get("id")
+    rows = store.failed_rows(limit=50)
+    if want_id is not None:
+        rows = [r for r in rows if r["id"] == want_id]
+    results: list[dict[str, Any]] = []
+    for row in rows[:20]:
+        try:
+            res = await _do_send(
+                str(row["channel"]),
+                str(row["chat_id"]),
+                str(row["text"]),
+                thread_ts=row.get("thread_ts"),
+                parse_mode=row.get("parse_mode"),
+            )
+        except Exception as exc:
+            res = {"success": False, "error": str(exc)}
+        if res.get("success"):
+            store.mark_retried(int(row["id"]))
+        results.append({"id": row["id"], "success": bool(res.get("success"))})
+    return {"results": results, "retried": sum(1 for r in results if r["success"])}
 
 
 @app.get("/api/v1/status")
@@ -553,6 +637,7 @@ async def api_whatsapp_qr():
         "success": True,
         "qr_present": bool(pair.get("qr")),
         "pairing_code": pair.get("pairing_code"),
+        "fetched_at": datetime.now(UTC).isoformat(),
     }
 
 
@@ -592,9 +677,12 @@ async def api_signal_qr():
     from .adapters import signal
 
     try:
-        return await signal.pairing_qr()
+        result = await signal.pairing_qr()
     except Exception as exc:
         return JSONResponse({"success": False, "error": str(exc)}, status_code=502)
+    if isinstance(result, dict) and result.get("success"):
+        result["fetched_at"] = datetime.now(UTC).isoformat()
+    return result
 
 
 @app.post("/api/v1/signal/sidecar")
