@@ -75,11 +75,11 @@ export default function Dashboard() {
                     Fleet comms console
                 </h1>
                 <p className="mt-1 max-w-2xl text-sm text-zinc-300">
-                    Send and read Telegram, WhatsApp, Slack, and Teams from one
-                    place. Sends are allowlist-gated server-side; inbound is
-                    sanitized and retained {status?.retention_days ?? 7} days.
-                    Wire a channel in Settings, or open Help for per-channel
-                    setup.
+                    Send and read Telegram, WhatsApp, Slack, Teams, and Signal
+                    from one place. Sends are allowlist-gated server-side;
+                    inbound is sanitized and retained{" "}
+                    {status?.retention_days ?? 7} days. Wire a channel in
+                    Settings, or open Help for per-channel setup.
                 </p>
             </div>
 

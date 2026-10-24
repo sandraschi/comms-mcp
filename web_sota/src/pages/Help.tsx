@@ -57,6 +57,18 @@ const CHANNELS = [
             "Attendance/recordings/transcripts need admin consent for OnlineMeetingArtifact.Read.All.",
         ],
     },
+    {
+        id: "signal",
+        title: "Signal (Docker bridge — dedicated number!)",
+        steps: [
+            "Use a DEDICATED number, never your personal primary — automation can cost the account.",
+            "Settings → Channels → Signal → Start bridge (pulls bbernhard/signal-cli-rest-api, first run takes minutes, no terminal).",
+            "Link as secondary device: Show link QR, scan with the phone (Signal → Settings → Linked devices).",
+            "…or register the dedicated number: enter it, Send code (SMS or voice call), enter the token, Verify.",
+            "Set COMMS_SIGNAL_NUMBER (the linked/registered number) + COMMS_SIGNAL_RECIPIENTS allowlist, Save.",
+            "Read path is poll-only (read_recent); there is no server-side history API. Sends are allowlist-gated.",
+        ],
+    },
 ];
 
 const FIXES = [
@@ -76,9 +88,14 @@ const FIXES = [
         fix: "Add the id to the channel's allowlist env (see Channels tab), restart backend.",
     },
     {
+        symptom: "Signal bridge never appears",
+        cause: "Docker Desktop not running, or the image pull failed.",
+        fix: "Start Docker Desktop, then Start bridge again from Settings → Channels → Signal. The phase line shows pull/boot progress.",
+    },
+    {
         symptom: "WhatsApp status never connects",
         cause: "Sidecar not running or session expired.",
-        fix: "node wa-sidecar, rescan QR from Settings → Channels → WhatsApp.",
+        fix: "Settings → Channels → WhatsApp → Start sidecar; when running, Show pairing code and relink the phone.",
     },
     {
         symptom: "Teams auth: 403 Authorization_RequestDenied",
@@ -99,7 +116,7 @@ const FAQS = [
     },
     {
         q: "Where do I put tokens and allowlists?",
-        a: "Settings → Channels shows live per-channel status; values live in .env at the repo root (see Channels tab for exact names). Restart the backend after edits — config is read at startup.",
+        a: "Settings → Channels shows live per-channel status with inputs — values save to repo-root .env and apply live, no restart. Keys never read back (write-only).",
     },
     {
         q: "How do clients connect?",
@@ -178,10 +195,11 @@ export default function Help() {
             {tab === "overview" && (
                 <div className="mt-4 space-y-4 text-sm text-zinc-300">
                     <p>
-                        comms-mcp is one text gateway for four channels —
-                        Telegram, WhatsApp, Slack, Teams. One portmanteau tool
-                        (comms_ops), allowlist-gated sends, sanitized inbound
-                        kept 7 days. This console sends, reads, and onboards it.
+                        comms-mcp is one text gateway for five channels —
+                        Telegram, WhatsApp, Slack, Teams, Signal. One
+                        portmanteau tool (comms_ops), allowlist-gated sends,
+                        sanitized inbound kept 7 days. This console sends,
+                        reads, and onboards it.
                     </p>
                     <ul className="list-disc space-y-1 pl-5">
                         <li>Dashboard — KPIs, test send, onboarding cue.</li>
@@ -263,6 +281,12 @@ export default function Help() {
                                         WhatsApp sidecar (Node)
                                     </td>
                                 </tr>
+                                <tr className="border-t border-zinc-800">
+                                    <td className="py-1 font-mono">18080</td>
+                                    <td className="py-1">
+                                        Signal bridge (Docker)
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -285,6 +309,10 @@ export default function Help() {
                             </li>
                             <li>
                                 COMMS_GRAPH_CLIENT_ID / COMMS_TEAMS_RECIPIENTS
+                            </li>
+                            <li>
+                                COMMS_SIGNAL_NUMBER / COMMS_SIGNAL_RECIPIENTS /
+                                COMMS_SIGNAL_SIDECAR_URL
                             </li>
                             <li>COMMS_RETENTION_DAYS / COMMS_INBOUND_SECRET</li>
                         </ul>

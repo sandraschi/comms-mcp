@@ -1,4 +1,5 @@
 import { CheckCircle2, Cpu, RefreshCw, Settings2, XCircle } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../App";
@@ -57,6 +58,16 @@ export default function Settings() {
     const [pairingBusy, setPairingBusy] = useState(false);
     const [sidecarBusy, setSidecarBusy] = useState(false);
     const [watching, setWatching] = useState(false);
+    const [signalQr, setSignalQr] = useState<Record<string, string> | null>(
+        null,
+    );
+    const [signalQrBusy, setSignalQrBusy] = useState(false);
+    const [regNumber, setRegNumber] = useState("");
+    const [regVoice, setRegVoice] = useState(false);
+    const [regToken, setRegToken] = useState("");
+    const [regPin, setRegPin] = useState("");
+    const [regMsg, setRegMsg] = useState<string | null>(null);
+    const [regBusy, setRegBusy] = useState(false);
 
     useEffect(() => {
         if (!watching) return;
@@ -66,7 +77,9 @@ export default function Settings() {
 
     useEffect(() => {
         if (!watching) return;
-        const wa = channels?.find((c) => c.id === "whatsapp");
+        const wa = channels?.find(
+            (c) => c.id === "whatsapp" || c.id === "signal",
+        );
         const phase = wa?.sidecar_state?.phase;
         if (phase === "running" || phase === "failed" || phase === "idle") {
             setWatching(false);
@@ -74,10 +87,10 @@ export default function Settings() {
         }
     }, [channels, watching]);
 
-    const sidecarAction = async (action: "start" | "stop") => {
+    const sidecarAction = async (base: string, action: "start" | "stop") => {
         setSidecarBusy(true);
         try {
-            await api.post("/api/v1/whatsapp/sidecar", { action });
+            await api.post(`/api/v1/${base}/sidecar`, { action });
             if (action === "start") {
                 setWatching(true);
             } else {
@@ -172,6 +185,59 @@ export default function Settings() {
             setTeamsAuth({ success: "false", error: "request failed" });
         }
         setTeamsBusy(false);
+    };
+
+    const showSignalQr = async () => {
+        setSignalQrBusy(true);
+        try {
+            const r = await api.get("/api/v1/signal/qr");
+            setSignalQr(r.data);
+        } catch {
+            setSignalQr({ success: "false", error: "sidecar unreachable" });
+        }
+        setSignalQrBusy(false);
+    };
+
+    const signalRegister = async () => {
+        if (!regNumber.trim()) {
+            setRegMsg("Enter the dedicated number in E.164 first");
+            return;
+        }
+        setRegBusy(true);
+        try {
+            const r = await api.post("/api/v1/signal/register", {
+                number: regNumber.trim(),
+                voice: regVoice,
+            });
+            setRegMsg(
+                r.data.success
+                    ? "Code sent — enter the SMS/voice token below, then Verify"
+                    : `Register failed: ${r.data.error ?? "unknown"}`,
+            );
+        } catch {
+            setRegMsg("Register failed — is the backend reachable?");
+        }
+        setRegBusy(false);
+    };
+
+    const signalVerify = async () => {
+        setRegBusy(true);
+        try {
+            const r = await api.post("/api/v1/signal/verify", {
+                number: regNumber.trim(),
+                token: regToken.trim(),
+                pin: regPin.trim(),
+            });
+            setRegMsg(
+                r.data.success
+                    ? "Number verified — save it as COMMS_SIGNAL_NUMBER above"
+                    : `Verify failed: ${r.data.error ?? "unknown"}`,
+            );
+            if (r.data.success) await reloadChannels();
+        } catch {
+            setRegMsg("Verify failed — is the backend reachable?");
+        }
+        setRegBusy(false);
     };
 
     const showPairing = async () => {
@@ -401,7 +467,10 @@ export default function Settings() {
                                         <button
                                             type="button"
                                             onClick={() =>
-                                                void sidecarAction("start")
+                                                void sidecarAction(
+                                                    "whatsapp",
+                                                    "start",
+                                                )
                                             }
                                             disabled={
                                                 sidecarBusy ||
@@ -418,7 +487,10 @@ export default function Settings() {
                                         <button
                                             type="button"
                                             onClick={() =>
-                                                void sidecarAction("stop")
+                                                void sidecarAction(
+                                                    "whatsapp",
+                                                    "stop",
+                                                )
                                             }
                                             disabled={
                                                 sidecarBusy ||
@@ -476,6 +548,180 @@ export default function Settings() {
                                         WhatsApp → Linked devices → Link with
                                         phone number, type the code. QR image:
                                         backend :11208/qr.
+                                    </div>
+                                </div>
+                            )}
+                            {c.id === "signal" && (
+                                <div className="mt-3 space-y-2">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                void sidecarAction(
+                                                    "signal",
+                                                    "start",
+                                                )
+                                            }
+                                            disabled={
+                                                sidecarBusy ||
+                                                c.sidecar_state?.phase ===
+                                                    "installing" ||
+                                                c.sidecar_state?.phase ===
+                                                    "starting"
+                                            }
+                                            data-testid="signal-sidecar-start"
+                                            className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-medium text-zinc-950 disabled:opacity-40"
+                                        >
+                                            Start bridge
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                void sidecarAction(
+                                                    "signal",
+                                                    "stop",
+                                                )
+                                            }
+                                            disabled={sidecarBusy}
+                                            data-testid="signal-sidecar-stop"
+                                            className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-100 hover:border-amber-500/50 disabled:opacity-40"
+                                        >
+                                            Stop
+                                        </button>
+                                        {c.sidecar_state && (
+                                            <span
+                                                data-testid="signal-sidecar-phase"
+                                                className="text-sm text-zinc-300"
+                                            >
+                                                bridge: {c.sidecar_state.phase}
+                                                {c.sidecar_state.detail
+                                                    ? ` — ${c.sidecar_state.detail}`
+                                                    : ""}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="text-sm text-zinc-400">
+                                        Docker-managed bridge (first run pulls
+                                        the image). Use a{" "}
+                                        <span className="font-semibold text-zinc-200">
+                                            dedicated number
+                                        </span>{" "}
+                                        — never your personal primary.
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => void showSignalQr()}
+                                            disabled={signalQrBusy}
+                                            data-testid="signal-qr-show"
+                                            className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-100 hover:border-amber-500/50 disabled:opacity-40"
+                                        >
+                                            {signalQrBusy
+                                                ? "Loading…"
+                                                : "Show link QR"}
+                                        </button>
+                                        {signalQr?.error && (
+                                            <span className="text-sm text-red-300">
+                                                {signalQr.error}
+                                            </span>
+                                        )}
+                                    </div>
+                                    {signalQr?.qr_image && (
+                                        <img
+                                            src={signalQr.qr_image}
+                                            alt="Signal link QR — scan with the phone"
+                                            data-testid="signal-qr-image"
+                                            className="h-48 w-48 rounded-lg border border-zinc-700 bg-white p-2"
+                                        />
+                                    )}
+                                    {signalQr?.qr_uri &&
+                                        !signalQr?.qr_image && (
+                                            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+                                                <QRCodeSVG
+                                                    value={signalQr.qr_uri}
+                                                    size={192}
+                                                    data-testid="signal-qr-code"
+                                                />
+                                                <div className="mt-2 font-mono text-sm break-all text-zinc-400">
+                                                    {signalQr.qr_uri}
+                                                </div>
+                                            </div>
+                                        )}
+                                    <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-3">
+                                        <div className="text-sm font-medium text-zinc-100">
+                                            …or register a dedicated number
+                                        </div>
+                                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                                            <input
+                                                value={regNumber}
+                                                onChange={(e) =>
+                                                    setRegNumber(e.target.value)
+                                                }
+                                                placeholder="+15550001111"
+                                                data-testid="signal-reg-number"
+                                                className="min-w-48 flex-1 rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-1.5 font-mono text-sm text-zinc-100"
+                                            />
+                                            <label className="flex items-center gap-1 text-sm text-zinc-300">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={regVoice}
+                                                    onChange={(e) =>
+                                                        setRegVoice(
+                                                            e.target.checked,
+                                                        )
+                                                    }
+                                                    data-testid="signal-reg-voice"
+                                                />
+                                                voice call
+                                            </label>
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    void signalRegister()
+                                                }
+                                                disabled={regBusy}
+                                                data-testid="signal-reg-start"
+                                                className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-medium text-zinc-950 disabled:opacity-40"
+                                            >
+                                                Send code
+                                            </button>
+                                        </div>
+                                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                                            <input
+                                                value={regToken}
+                                                onChange={(e) =>
+                                                    setRegToken(e.target.value)
+                                                }
+                                                placeholder="SMS token"
+                                                data-testid="signal-reg-token"
+                                                className="min-w-32 flex-1 rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-1.5 font-mono text-sm text-zinc-100"
+                                            />
+                                            <input
+                                                value={regPin}
+                                                onChange={(e) =>
+                                                    setRegPin(e.target.value)
+                                                }
+                                                placeholder="PIN (if set)"
+                                                data-testid="signal-reg-pin"
+                                                className="min-w-32 flex-1 rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-1.5 font-mono text-sm text-zinc-100"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    void signalVerify()
+                                                }
+                                                disabled={regBusy}
+                                                data-testid="signal-reg-verify"
+                                                className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-100 hover:border-amber-500/50 disabled:opacity-40"
+                                            >
+                                                Verify
+                                            </button>
+                                        </div>
+                                        {regMsg && (
+                                            <div className="mt-2 text-sm text-zinc-300">
+                                                {regMsg}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
