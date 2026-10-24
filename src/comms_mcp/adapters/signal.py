@@ -201,7 +201,7 @@ async def pairing_qr(device_name: str = "comms-mcp") -> dict[str, Any]:
     """
     try:
         async with httpx.AsyncClient(timeout=TIMEOUT_S) as client:
-            r = await client.get(f"{_base()}/v1/qrcodelink?device-name={device_name}")
+            r = await client.get(f"{_base()}/v1/qrcodelink?device_name={device_name}")
             if r.status_code != 200:
                 return {"success": False, "error": f"qrcodelink HTTP {r.status_code}"}
             ctype = r.headers.get("content-type", "")
@@ -224,7 +224,7 @@ async def pairing_qr(device_name: str = "comms-mcp") -> dict[str, Any]:
             if text.startswith("sgnl://"):
                 return {"success": True, "qr_uri": text}
             # Fallback: raw endpoint returns the plain URI.
-            r2 = await client.get(f"{_base()}/v1/qrcodelink/raw?device-name={device_name}")
+            r2 = await client.get(f"{_base()}/v1/qrcodelink/raw?device_name={device_name}")
             if r2.status_code == 200 and r2.text.strip().startswith("sgnl://"):
                 return {"success": True, "qr_uri": r2.text.strip()}
             return {"success": False, "error": "unrecognized qrcodelink shape"}

@@ -72,14 +72,14 @@ async def test_receive_stores_text_only(monkeypatch):
 async def test_qr_accepts_image_and_uri(monkeypatch):
     _env(monkeypatch)
     with respx.mock:
-        respx.get("http://127.0.0.1:18080/v1/qrcodelink?device-name=comms-mcp").mock(
+        respx.get("http://127.0.0.1:18080/v1/qrcodelink?device_name=comms-mcp").mock(
             return_value=Response(200, content=b"\x89PNG", headers={"content-type": "image/png"})
         )
         img = await signal.pairing_qr()
         assert img["qr_image"].startswith("data:image/png;base64,")
 
     with respx.mock:
-        respx.get("http://127.0.0.1:18080/v1/qrcodelink?device-name=comms-mcp").mock(
+        respx.get("http://127.0.0.1:18080/v1/qrcodelink?device_name=comms-mcp").mock(
             return_value=Response(200, json={"qrcodelink": "sgnl://abc"})
         )
         uri = await signal.pairing_qr()
