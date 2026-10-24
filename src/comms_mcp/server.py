@@ -171,7 +171,7 @@ async def health():
         "status": "ok",
         "server": "comms-mcp",
         "version": __version__,
-        "channels": ["telegram", "whatsapp", "slack", "teams"],
+        "channels": ["telegram", "whatsapp", "slack", "teams", "signal"],
         "stats": store.status_counts(),
     }
 
@@ -207,7 +207,7 @@ async def channel_statuses() -> list[dict[str, Any]]:
     QR payloads, or secrets — only booleans, display names, and counts.
     Every channel reports even when its adapter throws.
     """
-    from .adapters import slack, teams, telegram, whatsapp
+    from .adapters import signal, slack, teams, telegram, whatsapp
     from .adapters.telegram import chat_allowlist as tg_allow
 
     channels: list[dict[str, Any]] = []
@@ -338,6 +338,39 @@ async def channel_statuses() -> list[dict[str, Any]]:
                 "allowlist_count": 0,
                 "needs_auth": True,
                 "setup_env": "COMMS_GRAPH_CLIENT_ID + COMMS_TEAMS_RECIPIENTS",
+                "keys": ["COMMS_GRAPH_CLIENT_ID", "COMMS_TEAMS_RECIPIENTS"],
+            }
+        )
+    try:
+        sst = await signal.status()
+        ok = bool(sst.get("success"))
+        channels.append(
+            {
+                "id": "signal",
+                "label": "Signal",
+                "configured": ok and bool(sst.get("linked", True)),
+                "detail": str(sst.get("detail") or sst.get("error", "sidecar unreachable")),
+                "allowlist_count": len(signal.allow_recipients()),
+                "setup_env": "COMMS_SIGNAL_NUMBER (dedicated!) + COMMS_SIGNAL_RECIPIENTS",
+                "sidecar_state": signal.sidecar_state(),
+                "pairing_needed": not ok or not sst.get("linked", True),
+                "keys": [
+                    "COMMS_SIGNAL_NUMBER",
+                    "COMMS_SIGNAL_RECIPIENTS",
+                    "COMMS_SIGNAL_SIDECAR_URL",
+                ],
+            }
+        )
+    except Exception as exc:
+        channels.append(
+            {
+                "id": "signal",
+                "label": "Signal",
+                "configured": False,
+                "detail": f"probe failed: {exc}",
+                "allowlist_count": 0,
+                "pairing_needed": True,
+                "setup_env": "COMMS_SIGNAL_NUMBER (dedicated!) + COMMS_SIGNAL_RECIPIENTS",
             }
         )
     return channels
@@ -360,6 +393,9 @@ _WRITABLE_ENV_KEYS = frozenset(
         "COMMS_SLACK_APP_TOKEN",
         "COMMS_SLACK_BOT_TOKEN",
         "COMMS_SLACK_CHANNEL_IDS",
+        "COMMS_SIGNAL_NUMBER",
+        "COMMS_SIGNAL_RECIPIENTS",
+        "COMMS_SIGNAL_SIDECAR_URL",
         "COMMS_GRAPH_CLIENT_ID",
         "COMMS_TEAMS_RECIPIENTS",
         "COMMS_RETENTION_DAYS",
@@ -546,6 +582,72 @@ async def api_whatsapp_sidecar(request: Request):
     return JSONResponse({"success": False, "error": "action must be start|stop"}, status_code=400)
 
 
+@app.get("/api/v1/signal/qr")
+async def api_signal_qr():
+    """Link-as-device QR for the Settings Signal card (explicit click only).
+
+    Returns qr_image (PNG data URL) and/or qr_uri (sgnl:// for QR libs).
+    Never logged.
+    """
+    from .adapters import signal
+
+    try:
+        return await signal.pairing_qr()
+    except Exception as exc:
+        return JSONResponse({"success": False, "error": str(exc)}, status_code=502)
+
+
+@app.post("/api/v1/signal/sidecar")
+async def api_signal_sidecar(request: Request):
+    """Start/stop the Signal bridge container (Docker).
+
+    Body: {"action": "start"|"stop"}. start pulls the image on first run,
+    then starts the container; poll sidecar_state via GET /api/v1/channels.
+    """
+    from .adapters import signal
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"success": False, "error": "invalid JSON"}, status_code=400)
+    action = str(body.get("action", "")).strip().lower()
+    import asyncio as _asyncio
+
+    if action == "start":
+        result = await _asyncio.to_thread(signal.start_sidecar)
+        return {"success": True, **result}
+    if action == "stop":
+        result = await _asyncio.to_thread(signal.stop_sidecar)
+        return {"success": True, **result}
+    return JSONResponse({"success": False, "error": "action must be start|stop"}, status_code=400)
+
+
+@app.post("/api/v1/signal/register")
+async def api_signal_register(request: Request):
+    """Register a dedicated number: {"number": "+...", "voice": bool}."""
+    from .adapters import signal
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"success": False, "error": "invalid JSON"}, status_code=400)
+    return await signal.register(str(body.get("number", "")), bool(body.get("voice", False)))
+
+
+@app.post("/api/v1/signal/verify")
+async def api_signal_verify(request: Request):
+    """Verify a registered number: {"number": "+...", "token": "...", "pin": "..."}."""
+    from .adapters import signal
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"success": False, "error": "invalid JSON"}, status_code=400)
+    return await signal.verify(
+        str(body.get("number", "")), str(body.get("token", "")), str(body.get("pin", ""))
+    )
+
+
 @app.post("/api/v1/send")
 async def api_send(request: Request):
     from .adapters import telegram
@@ -584,7 +686,7 @@ async def api_capabilities():
     return {
         "server": "comms-mcp",
         "version": __version__,
-        "channels": ["telegram", "whatsapp", "slack", "teams"],
+        "channels": ["telegram", "whatsapp", "slack", "teams", "signal"],
         "mcp_tools": ["comms_ops", "comms_shutdown", "comms_show_status"],
         "rest": [
             "GET /health",
@@ -596,6 +698,10 @@ async def api_capabilities():
             "POST /api/v1/teams/auth",
             "GET /api/v1/whatsapp/qr",
             "POST /api/v1/whatsapp/sidecar",
+            "GET /api/v1/signal/qr",
+            "POST /api/v1/signal/sidecar",
+            "POST /api/v1/signal/register",
+            "POST /api/v1/signal/verify",
             "POST /api/v1/send",
             "POST /api/v1/inbound/wa",
             "GET /api/capabilities",

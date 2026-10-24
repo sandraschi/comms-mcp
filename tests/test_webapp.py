@@ -12,7 +12,7 @@ import os
 import pytest
 
 from comms_mcp import server
-from comms_mcp.adapters import slack, teams, telegram, whatsapp
+from comms_mcp.adapters import signal, slack, teams, telegram, whatsapp
 
 
 async def _boom():
@@ -29,8 +29,9 @@ async def test_channels_all_report_on_total_failure(monkeypatch):
     monkeypatch.setattr(whatsapp, "status", _boom)
     monkeypatch.setattr(slack, "status", _boom)
     monkeypatch.setattr(teams, "auth_status", _boom_sync)
+    monkeypatch.setattr(signal, "status", _boom)
     channels = await server.channel_statuses()
-    assert [c["id"] for c in channels] == ["telegram", "whatsapp", "slack", "teams"]
+    assert [c["id"] for c in channels] == ["telegram", "whatsapp", "slack", "teams", "signal"]
     assert all(c["configured"] is False for c in channels)
 
 
@@ -85,6 +86,20 @@ def test_apply_config_validates_retention(tmp_path, monkeypatch):
         server.apply_config({"COMMS_RETENTION_DAYS": "0"})
     with pytest.raises(ValueError, match="integer"):
         server.apply_config({"COMMS_RETENTION_DAYS": "abc"})
+
+
+def test_apply_config_accepts_signal_keys(tmp_path, monkeypatch):
+    _use_tmp_env(tmp_path, monkeypatch)
+    result = server.apply_config(
+        {"COMMS_SIGNAL_NUMBER": "+15550001111", "COMMS_SIGNAL_RECIPIENTS": "+15550002222"}
+    )
+    assert result == {"applied": ["COMMS_SIGNAL_NUMBER", "COMMS_SIGNAL_RECIPIENTS"]}
+
+
+@pytest.mark.asyncio
+async def test_signal_route_rejects_bad_action():
+    result = await server.api_signal_sidecar(_JsonRequest({"action": "dance"}))
+    assert result.status_code == 400
 
 
 def test_apply_config_round_trips_env_file_and_process(tmp_path, monkeypatch):

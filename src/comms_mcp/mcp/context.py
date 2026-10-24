@@ -28,7 +28,7 @@ async def comms_status_resource() -> dict:
 @mcp.prompt("comms_send_briefing")
 async def comms_send_briefing(
     channel: Annotated[
-        str, Field(description="Channel: telegram, whatsapp, slack, teams.")
+        str, Field(description="Channel: telegram, whatsapp, slack, teams, signal.")
     ] = "telegram",
     chat_id: Annotated[str, Field(description="Recipient chat id / number / friendly name.")] = "",
     topic: Annotated[str, Field(description="One-line briefing topic.")] = "fleet status",

@@ -1,8 +1,8 @@
 """comms_ops portmanteau - unified fleet comms (P4 spec).
 
 One tool, all channels behind adapters. v0.1 Telegram; v0.2 WhatsApp via the
-baileys sidecar. send enforces the per-channel allowlist; inbound is
-sanitized + 7-day TTL.
+baileys sidecar; v0.7 Signal via the signal-cli-rest-api sidecar. send
+enforces the per-channel allowlist; inbound is sanitized + 7-day TTL.
 """
 
 from __future__ import annotations
@@ -12,14 +12,14 @@ from typing import Annotated, Any, Literal
 
 from pydantic import Field
 
-from ...adapters import slack, teams, telegram, whatsapp
+from ...adapters import signal, slack, teams, telegram, whatsapp
 from ...config import chat_allowlist
 from ...outbox import sqlite as store
 from ...registry import mcp
 
 logger = logging.getLogger("comms_mcp.tools")
 
-_Channel = Literal["telegram", "whatsapp", "slack", "teams"]
+_Channel = Literal["telegram", "whatsapp", "slack", "teams", "signal"]
 
 
 def _error_response(operation: str, channel: str, error: str) -> dict[str, Any]:
@@ -36,7 +36,7 @@ def _error_response(operation: str, channel: str, error: str) -> dict[str, Any]:
         "openWorldHint": True,
     },
     output_schema={"type": "object"},
-    version="0.6.0",
+    version="0.7.0",
 )
 async def comms_ops(
     operation: Annotated[
@@ -57,7 +57,7 @@ async def comms_ops(
     ],
     channel: Annotated[
         _Channel,
-        Field(description="Channel (v0.1 telegram, v0.2 whatsapp, v0.3 slack, v0.4 teams)."),
+        Field(description="Channel (v0.1 telegram … v0.7 signal)."),
     ] = "telegram",
     chat_id: Annotated[
         str | None, Field(description="Recipient chat id / E.164 number (send).")
@@ -85,10 +85,13 @@ async def comms_ops(
     (allowlist COMMS_SLACK_CHANNEL_IDS; official SDK, no sidecar).
     v0.4: Teams via Microsoft Graph (allowlist COMMS_TEAMS_RECIPIENTS; reuse
     email-mcp's Graph app, device-code auth - see operation='auth'). v0.5:
-    Slack history/search/react + thread replies. v0.6: text-only fatten -
+    Slack history/search/react + thread replies.     v0.6: text-only fatten -
     Telegram replies/HTML/edit/delete + chat titles + offset-persisted polling,
     Teams live chats/history/replies/edit/delete, WhatsApp pairing in status,
-    plus edit/delete ops (telegram/slack/teams). Inbound
+    plus edit/delete ops (telegram/slack/teams). v0.7: Signal via the
+    bbernhard signal-cli-rest-api sidecar (unofficial bridge — dedicated
+    number required; link by QR or register by SMS/voice; Docker-managed).
+    Inbound
     is sanitized (prompt-injection neutralized) and retained 7 days.
 
     ## Return Format
@@ -114,6 +117,8 @@ async def comms_ops(
     comms_ops(operation="auth", channel="teams")     # start/poll device flow
     comms_ops(operation="send", channel="teams", chat_id="steve",
               text="Hey - on my way")
+    comms_ops(operation="send", channel="signal", chat_id="+436991234567",
+              text="Ping from the fleet")
     """
     try:
         if operation == "status":
@@ -126,6 +131,9 @@ async def comms_ops(
             if channel == "teams":
                 result = await teams.status()
                 return {"message": "teams status", **result}
+            if channel == "signal":
+                result = await signal.status()
+                return {"message": "signal status", **result}
             ok = await telegram.get_me()
             return {
                 "success": ok.get("ok", False),
@@ -143,6 +151,13 @@ async def comms_ops(
                     "message": "whatsapp allowlist",
                     "channel": "whatsapp",
                     "threads": whatsapp.allow_numbers(),
+                }
+            if channel == "signal":
+                return {
+                    "success": True,
+                    "message": "signal allowlist",
+                    "channel": "signal",
+                    "threads": signal.allow_recipients(),
                 }
             if channel == "slack":
                 live = await slack.list_channels()
@@ -210,6 +225,8 @@ async def comms_ops(
         if operation == "read_recent":
             if channel == "telegram":
                 await telegram.poll_updates()
+            if channel == "signal":
+                await signal.poll_receive()
             if channel == "slack" and chat_id:
                 live = await slack.channel_history(chat_id, limit=limit)
                 if live.get("success"):
@@ -249,6 +266,9 @@ async def comms_ops(
                 target = teams._cfg_recipients().get(chat_id, chat_id)
                 result = await teams.chat_messages(target, limit=limit)
                 return {"message": "teams history", **result}
+            if channel == "signal":
+                error = "signal has no history API — use read_recent (polls new messages)"
+                return {"success": False, "message": error, "error": error}
             error = f"history only supported for channels slack/teams, got {channel}"
             return {"success": False, "message": error, "error": error}
         if operation == "search":
@@ -317,6 +337,9 @@ async def comms_ops(
                     "channels:read, chat:write, reactions:write, search:read), invite "
                     "bot, set COMMS_SLACK_APP_TOKEN + COMMS_SLACK_BOT_TOKEN + "
                     "COMMS_SLACK_CHANNEL_IDS. history/search/react/edit/delete need chat_id. "
+                    "Signal: COMMS_SIGNAL_NUMBER (dedicated!) + COMMS_SIGNAL_RECIPIENTS + "
+                    "sidecar (Docker, auto-started from Settings). Link by QR or "
+                    "register by SMS/voice; read_recent polls (no history API). "
                     "Retention: COMMS_RETENTION_DAYS (7)"
                 ),
             }
@@ -363,6 +386,10 @@ async def _do_send(
             result = await teams.send_message(chat_id, text, reply_to=thread_ts)
             ok = bool(result.get("success"))
             extra["chat_id"] = result.get("chat_id") if ok else None
+            error = str(result.get("error", "send failed"))
+        elif channel == "signal":
+            result = await signal.send_message(chat_id, text)
+            ok = bool(result.get("success"))
             error = str(result.get("error", "send failed"))
         else:
             store.mark_failed(entry["id"], f"unknown channel {channel}")

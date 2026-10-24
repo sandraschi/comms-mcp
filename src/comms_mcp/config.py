@@ -39,6 +39,13 @@ class Settings(BaseSettings):
     teams_token_file: Path = Path("data/teams_oauth.json")
     teams_graph_base: str = "https://graph.microsoft.com/v1.0"
 
+    # Signal (v0.7, via bbernhard signal-cli-rest-api sidecar, Docker)
+    # Unofficial community bridge (Signal has no bot API). Use a DEDICATED
+    # number — automation on a personal number risks the account.
+    signal_sidecar_url: str = "http://127.0.0.1:18080"
+    signal_number: str = ""  # the linked/registered Signal number (E.164)
+    signal_recipients: str = ""  # comma-separated E.164 allowlist
+
     # Storage / retention
     db_path: Path = Path("data/comms.db")
     retention_days: int = 7  # message-body TTL; metadata kept longer

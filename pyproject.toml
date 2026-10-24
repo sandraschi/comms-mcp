@@ -1,6 +1,6 @@
 [project]
 name = "comms-mcp"
-version = "0.6.0"
+version = "0.7.0"
 description = "Unified fleet text comms gateway - Telegram, WhatsApp baileys sidecar, Slack Socket Mode, Teams Graph. comms_ops portmanteau, allowlists, 7-day retention."
 requires-python = ">=3.11"
 dependencies = [
