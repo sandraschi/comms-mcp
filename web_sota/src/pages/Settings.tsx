@@ -62,7 +62,11 @@ export default function Settings() {
             .catch(() => setHealth("unreachable"));
         api.get("/api/v1/channels")
             .then((r) => {
-                setChannels(r.data.channels ?? []);
+                const list = (r.data.channels ?? []).map((c: ChannelState) => ({
+                    ...c,
+                    keys: Array.isArray(c.keys) ? c.keys : [],
+                }));
+                setChannels(list);
                 setChannelsError(null);
             })
             .catch((e: unknown) =>
@@ -75,7 +79,11 @@ export default function Settings() {
     const reloadChannels = async () => {
         try {
             const r = await api.get("/api/v1/channels");
-            setChannels(r.data.channels ?? []);
+            const list = (r.data.channels ?? []).map((c: ChannelState) => ({
+                ...c,
+                keys: Array.isArray(c.keys) ? c.keys : [],
+            }));
+            setChannels(list);
             setChannelsError(null);
         } catch (e: unknown) {
             setChannelsError(e instanceof Error ? e.message : "unreachable");
