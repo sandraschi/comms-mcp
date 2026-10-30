@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     signal_number: str = ""  # the linked/registered Signal number (E.164)
     signal_recipients: str = ""  # comma-separated E.164 allowlist
 
+    # Sidecar auto-start gate ("0" disables auto-START of the WhatsApp /
+    # Signal sidecars on backend boot; adopt-if-alive always runs).
+    sidecar_autostart: str = "1"
+
     # Storage / retention
     db_path: Path = Path("data/comms.db")
     retention_days: int = 7  # message-body TTL; metadata kept longer
